@@ -1,5 +1,11 @@
+// Replace this with your own YouTube Data API key!
+const API_KEY = "YOUR_YOUTUBE_API_KEY";
+
 const form = document.getElementById('searchForm');
 const results = document.getElementById('results');
+const playerModal = document.getElementById('playerModal');
+const videoPlayer = document.getElementById('videoPlayer');
+const closeBtn = document.getElementById('closeBtn');
 
 form.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -9,37 +15,48 @@ form.addEventListener('submit', function(e) {
 });
 
 function searchYouTube(query) {
-    // Use YouTube search URL for guest/public mode
-    // This approach uses public search results (not the Data API)
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    // We'll fetch the HTML, but YouTube blocks CORS.
-    // So, we show links, or embed videos by guessing video IDs from search results.
-    // Instead, let's use YouTube Data API if you provide an API key.
-    // For now, let's use static video IDs for demo.
-
-    // Example: Show top 5 demo videos for "query"
-    // To make this dynamic, you'd need a backend or an API key.
-    // For true guest mode, we can use hardcoded video IDs or show instructions.
-
-    // DEMO: Use YouTube iframe embeds for popular videos
-    const demoVideoIds = [
-        'dQw4w9WgXcQ', // Rick Astley
-        'M7FIvfx5J10', // Ok Go
-        'eY52Zsg-KVI', // TED Ed
-        '9bZkp7q19f0', // Gangnam Style
-        'V-_O7nl0Ii0', // Charlie bit my finger
-    ];
-
-    results.innerHTML = '';
-    demoVideoIds.forEach(id => {
-        const div = document.createElement('div');
-        div.className = 'video';
-        div.innerHTML = `
-            <iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>
-            <p><a href="https://www.youtube.com/watch?v=${id}" target="_blank">Watch on YouTube</a></p>
-        `;
-        results.appendChild(div);
-    });
-
-    // If you want to use the Data API, let me know for the next step!
+    results.innerHTML = '<p>Loading...</p>';
+    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=12&q=${encodeURIComponent(query)}&key=${API_KEY}`)
+        .then(res => res.json())
+        .then(data => {
+            results.innerHTML = '';
+            if (!data.items) {
+                results.innerHTML = '<p>No videos found.</p>';
+                return;
+            }
+            data.items.forEach(item => {
+                const { videoId } = item.id;
+                const { title, thumbnails } = item.snippet;
+                const thumb = thumbnails.medium.url;
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.innerHTML = `
+                    <img class="thumbnail" src="${thumb}" alt="Thumbnail">
+                    <div class="title">${title}</div>
+                `;
+                card.onclick = () => showPlayer(videoId);
+                results.appendChild(card);
+            });
+        })
+        .catch(err => {
+            results.innerHTML = '<p>Error loading videos.</p>';
+            console.error(err);
+        });
 }
+
+function showPlayer(videoId) {
+    playerModal.style.display = 'flex';
+    videoPlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+}
+
+closeBtn.onclick = function() {
+    playerModal.style.display = 'none';
+    videoPlayer.src = '';
+};
+
+window.onclick = function(event) {
+    if (event.target === playerModal) {
+        playerModal.style.display = 'none';
+        videoPlayer.src = '';
+    }
+};
