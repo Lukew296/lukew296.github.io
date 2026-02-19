@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neon Tide Chat</title>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Syne:wght@600&display=swap');
+
+    :root {
+      --bg-1: #0b0f1a;
+      --bg-2: #140c1f;
+      --bg-3: #1a0f2b;
+      --teal: #2ee6d6;
+      --pink: #ff4fa3;
+      --purple: #8b5cff;
+      --white: #f7f7fb;
+      --muted: #b6b6c8;
+      --glass: rgba(255, 255, 255, 0.06);
+      --glass-2: rgba(255, 255, 255, 0.10);
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--white);
+      background:
+        radial-gradient(1200px 800px at 10% 10%, rgba(46, 230, 214, 0.18), transparent 60%),
+        radial-gradient(1000px 700px at 90% 15%, rgba(255, 79, 163, 0.18), transparent 60%),
+        radial-gradient(900px 900px at 70% 90%, rgba(139, 92, 255, 0.20), transparent 60%),
+        linear-gradient(160deg, var(--bg-1), var(--bg-2), var(--bg-3));
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(1100px, 100%);
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--glass);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      padding: 20px;
+    }
+
+    .title {
+      font-family: "Syne", sans-serif;
+      font-size: clamp(20px, 2vw, 28px);
+      letter-spacing: 0.5px;
+      margin: 0 0 12px 0;
+      color: var(--white);
+    }
+
+    .muted { color: var(--muted); }
+
+    .row {
+      display: grid;
+      gap: 12px;
+    }
+
+    .login-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    input, button, textarea {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--white);
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 2px rgba(46, 230, 214, 0.25);
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: linear-gradient(135deg, var(--teal), var(--purple));
+      color: #0b0f1a;
+      font-weight: 600;
+      transition: transform 0.08s ease, filter 0.2s ease;
+    }
+
+    button:hover { filter: brightness(1.05); }
+    button:active { transform: translateY(1px); }
+
+    .chat {
+      display: grid;
+      gap: 12px;
+    }
+
+    .chat-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .messages {
+      display: grid;
+      gap: 12px;
+      max-height: 60vh;
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 14px;
+      background: var(--glass-2);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      animation: rise 0.35s ease both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .meta {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .username {
+      color: var(--teal);
+      font-weight: 600;
+    }
+
+    .timestamp {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .content {
+      line-height: 1.45;
+      word-wrap: break-word;
+    }
+
+    .content blockquote {
+      border-left: 3px solid var(--purple);
+      margin: 6px 0;
+      padding-left: 10px;
+      color: var(--muted);
+    }
+
+    .content code {
+      background: rgba(0,0,0,0.4);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .content a {
+      color: var(--pink);
+      text-decoration: underline;
+    }
+
+
+    .composer {
+      display: grid;
+      gap: 10px;
+    }
+
+    .composer textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .composer-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .typing {
+      min-height: 18px;
+      color: var(--pink);
+      font-size: 12px;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 720px) {
+      .messages { max-height: 55vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card" id="loginCard">
+      <h1 class="title">Neon Tide Chat</h1>
+      <p class="muted">Log in with your Firebase email/password account.</p>
+      <form class="login-grid" id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required />
+        <input type="password" id="loginPassword" placeholder="Password" required />
+        <button type="submit">Log In</button>
+        <div class="small" id="loginStatus"></div>
+      </form>
+    </div>
+
+    <div class="card chat hidden" id="chatCard">
+      <div class="chat-header">
+        <div>
+          <div class="title">Chat</div>
+          <div class="small" id="userInfo"></div>
+        </div>
+        <div class="small">
+          <button id="refreshBtn" type="button">Refresh</button>
+          <button id="logoutBtn" type="button" style="margin-left:8px;background:linear-gradient(135deg,#ff4fa3,#8b5cff);color:#0b0f1a;">Log Out</button>
+        </div>
+      </div>
+
+      <div class="typing" id="typingIndicator"></div>
+
+      <button id="loadMoreBtn" type="button">Load 100 more</button>
+
+      <div class="small">Messages</div>
+      <div class="messages" id="messages"></div>
+
+      <form class="composer" id="composerForm">
+        <textarea id="messageInput" placeholder="Type a message..."></textarea>
+        <div class="composer-row">
+          <button type="submit">Send</button>
+        </div>
+        <div class="small">
+          Optional markup: **bold**, *italic*, ~~strike~~, `code`, > quote, [link](https://example.com)
+          <br>
+          Optional color codes: &amp;0–&amp;f or hex as &#RRGGBB, reset with &amp;r
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getDatabase,
+      ref as dbRef,
+      push,
+      query,
+      orderByChild,
+      onValue,
+      off
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAt19Zz_YKMnTOdcZQpRYbE93MiGJhB7l8",
+      authDomain: "bloodvine-auth.firebaseapp.com",
+      projectId: "bloodvine-auth",
+      databaseURL: "https://bloodvine-auth-default-rtdb.firebaseio.com",
+      storageBucket: "bloodvine-auth.firebasestorage.app",
+      messagingSenderId: "733317481270",
+      appId: "1:733317481270:web:deb36ce5380f706cd82997"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const MESSAGES_PATH = "messages";
+    const TYPING_PATH = "typing";
+
+    const loginCard = document.getElementById("loginCard");
+    const chatCard = document.getElementById("chatCard");
+    const loginForm = document.getElementById("loginForm");
+    const loginEmail = document.getElementById("loginEmail");
+    const loginPassword = document.getElementById("loginPassword");
+    const loginStatus = document.getElementById("loginStatus");
+    const messagesEl = document.getElementById("messages");
+    const messageInput = document.getElementById("messageInput");
+    const composerForm = document.getElementById("composerForm");
+    const userInfo = document.getElementById("userInfo");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+    const typingIndicator = document.getElementById("typingIndicator");
+
+    let currentUser = null;
+    let realtimeUnsub = null;
+    let typingUnsub = null;
+    let lastTypingSent = 0;
+    const renderedIds = new Set();
+
+    const COLOR_CODES = {
+      "0": "#000000",
+      "1": "#0a1a4f",
+      "2": "#0f6b2e",
+      "3": "#1aa5a5",
+      "4": "#7a0b1f",
+      "5": "#6a1b9a",
+      "6": "#d17d1f",
+      "7": "#bdbdbd",
+      "8": "#444a5a",
+      "9": "#2e6bff",
+      "a": "#2ee6d6",
+      "b": "#7cf7ff",
+      "c": "#ff4f6d",
+      "d": "#ff4fa3",
+      "e": "#ffd166",
+      "f": "#ffffff",
+      "r": null
+    };
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderMarkdown(text) {
+      let s = escapeHtml(text);
+      s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+      s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      s = s.replace(/^> (.*)$/gm, "<blockquote>$1</blockquote>");
+      s = s.replace(/\n/g, "<br>");
+      return s;
+    }
+
+    function renderWithColors(raw) {
+      let segments = [];
+      let current = "";
+      let currentColor = null;
+
+      for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (ch === "&") {
+          const next = raw[i + 1];
+          if (next === "#" && /^[0-9a-fA-F]{6}$/.test(raw.slice(i + 2, i + 8))) {
+            segments.push({ text: current, color: currentColor });
+            current = "";
+            currentColor = "#" + raw.slice(i + 2, i + 8);
+            i += 7;
+            continue;
+          }
+          if (next && COLOR_CODES.hasOwnProperty(next.toLowerCase())) {
+            segments.push({ text: current, color: currentColor });
+            current = "";
+            currentColor = COLOR_CODES[next.toLowerCase()];
+            i += 1;
+            continue;
+          }
+        }
+        current += ch;
+      }
+
+      segments.push({ text: current, color: currentColor });
+
+      return segments.map(seg => {
+        const html = renderMarkdown(seg.text);
+        return seg.color ? `<span style="color:${seg.color}">${html}</span>` : html;
+      }).join("");
+    }
+
+    function renderMessageContent(raw) {
+      return renderWithColors(raw || "");
+    }
+
+    function showLogin() {
+      loginCard.classList.remove("hidden");
+      chatCard.classList.add("hidden");
+      if (realtimeUnsub) realtimeUnsub();
+      if (typingUnsub) typingUnsub();
+      realtimeUnsub = null;
+      typingUnsub = null;
+    }
+
+    function showChat() {
+      loginCard.classList.add("hidden");
+      chatCard.classList.remove("hidden");
+      userInfo.textContent = `Logged in as ${currentUser?.name || currentUser?.email || currentUser?.$id || "User"}`;
+      loadMoreBtn.classList.add("hidden");
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = loginEmail.value.trim();
+      const password = loginPassword.value;
+      if (!email || !password) {
+        loginStatus.textContent = "Email and password are required.";
+        return;
+      }
+      loginStatus.textContent = "Logging in...";
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        loginPassword.value = "";
+        loginStatus.textContent = "";
+      } catch (err) {
+        loginStatus.textContent = err?.message || "Login failed.";
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      try { await signOut(auth); } catch {}
+      currentUser = null;
+      showLogin();
+    });
+
+    refreshBtn.addEventListener("click", () => subscribeRealtime());
+    loadMoreBtn.addEventListener("click", () => {});
+
+    function resetMessages() {
+      renderedIds.clear();
+      messagesEl.innerHTML = "";
+    }
+
+    function renderMessage(doc, atBottom = true) {
+      if (doc.id && renderedIds.has(doc.id)) return;
+      if (doc.id) renderedIds.add(doc.id);
+      const msg = document.createElement("div");
+      msg.className = "message";
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+
+      const username = document.createElement("div");
+      username.className = "username";
+      const displayName = doc.username || doc.userEmail || doc.userId || "Unknown";
+      username.textContent = `From: ${displayName}`;
+
+      const ts = document.createElement("div");
+      ts.className = "timestamp";
+      const dateSrc = typeof doc.createdAt === "number" ? new Date(doc.createdAt) : new Date();
+      ts.textContent = dateSrc.toLocaleString();
+
+      meta.appendChild(username);
+      meta.appendChild(ts);
+
+      const content = document.createElement("div");
+      content.className = "content";
+      content.innerHTML = renderMessageContent(doc.text || "");
+
+      msg.appendChild(meta);
+      msg.appendChild(content);
+
+      messagesEl.appendChild(msg);
+
+      if (atBottom) {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    }
+
+    function subscribeRealtime() {
+      if (realtimeUnsub) realtimeUnsub();
+      const q = dbRef(db, MESSAGES_PATH);
+      const cb = (snap) => {
+        resetMessages();
+        const data = snap.val();
+        if (!data) {
+          const empty = document.createElement("div");
+          empty.className = "message";
+          empty.textContent = "No messages yet.";
+          messagesEl.appendChild(empty);
+          return;
+        }
+
+        const entries = Object.entries(data)
+          .map(([id, value]) => ({ id, ...value }))
+          .sort((a, b) => {
+            const at = a.createdAt || 0;
+            const bt = b.createdAt || 0;
+            if (at !== bt) return at - bt;
+            return String(a.id).localeCompare(String(b.id));
+          });
+
+        for (const doc of entries) {
+          renderMessage(doc, false);
+        }
+
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      };
+      const errCb = (err) => {
+        resetMessages();
+        const div = document.createElement("div");
+        div.className = "message";
+        div.textContent = err?.message || "Failed to read messages.";
+        messagesEl.appendChild(div);
+      };
+      onValue(q, cb, errCb);
+      realtimeUnsub = () => off(q, "value", cb);
+    }
+
+    function subscribeTyping() {
+      if (typingUnsub) typingUnsub();
+      const q = query(
+        dbRef(db, TYPING_PATH),
+        orderByChild("ts"),
+        limitToLast(1)
+      );
+      const cb = (snap) => {
+        const data = snap.val();
+        if (!data) return;
+        if (data.userId === currentUser?.uid) return;
+        const ts = typeof data.ts === "number" ? data.ts : 0;
+        const ageMs = Date.now() - ts;
+        if (ageMs > 2500) return;
+        typingIndicator.textContent = `${data.username || "Someone"} is typing...`;
+        clearTimeout(typingIndicator._t);
+        typingIndicator._t = setTimeout(() => {
+          typingIndicator.textContent = "";
+        }, 1500);
+      };
+      onChildAdded(q, cb);
+      typingUnsub = () => off(q, "child_added", cb);
+    }
+
+    function sendTypingSignal() {
+      const now = Date.now();
+      if (now - lastTypingSent < 900) return;
+      lastTypingSent = now;
+      push(dbRef(db, TYPING_PATH), {
+        userId: currentUser?.uid || "",
+        username: currentUser?.displayName || currentUser?.email || "User",
+        ts: Date.now()
+      }).catch(() => {});
+    }
+
+    messageInput.addEventListener("input", () => {
+      if (!currentUser) return;
+      sendTypingSignal();
+    });
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      if (e.shiftKey) return;
+      e.preventDefault();
+      composerForm.requestSubmit();
+    });
+
+    composerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      try {
+        const tempId = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        renderMessage({
+          id: tempId,
+          text,
+          userId: currentUser?.uid || "",
+          username: currentUser?.displayName || currentUser?.email || "User",
+          createdAt: Date.now()
+        }, true);
+
+        await push(dbRef(db, MESSAGES_PATH), {
+          text,
+          userId: currentUser?.uid || "",
+          username: currentUser?.displayName || currentUser?.email || "User",
+          createdAt: Date.now()
+        });
+
+        messageInput.value = "";
+      } catch (err) {
+        alert(err?.message || "Failed to send message.");
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        currentUser = null;
+        showLogin();
+        return;
+      }
+      currentUser = user;
+      showChat();
+      subscribeRealtime();
+      subscribeTyping();
+    });
+  </script>
+</body>
+</html>
