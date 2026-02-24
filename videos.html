@@ -16,9 +16,7 @@
       --border: rgba(255, 255, 255, 0.12);
       --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       font-family: "Space Grotesk", "Segoe UI", Tahoma, sans-serif;
@@ -29,506 +27,365 @@
       color: var(--text);
       min-height: 100vh;
     }
-
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
-
     .hero {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      align-items: flex-end;
-      justify-content: space-between;
+      display: flex; flex-wrap: wrap; gap: 24px;
+      align-items: flex-end; justify-content: space-between;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 24px;
-      margin-bottom: 28px;
+      padding-bottom: 24px; margin-bottom: 28px;
     }
-
     .hero h1 { font-size: clamp(26px, 4vw, 40px); margin: 0 0 8px; letter-spacing: 0.5px; }
     .hero p   { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
-
     .status {
-      font-size: 14px;
-      color: var(--muted);
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      padding: 10px 12px;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      min-width: 220px;
+      font-size: 14px; color: var(--muted);
+      background: var(--panel-2); border: 1px solid var(--border);
+      padding: 10px 12px; border-radius: 10px;
+      box-shadow: var(--shadow); min-width: 220px;
     }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-      gap: 24px;
-    }
-
+    .layout { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,0.8fr); gap: 24px; }
     @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
-
     .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      box-shadow: var(--shadow);
-      padding: 18px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 16px; box-shadow: var(--shadow); padding: 18px;
     }
-
     .viewer { display: grid; gap: 16px; }
-
     .display {
-      position: relative;
-      background: #05060a;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      width: 100%;
-      height: 0;
-      padding-top: 56.25%;
+      position: relative; background: #05060a;
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      width: 100%; height: 0; padding-top: 56.25%;
     }
-
     canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: contain; display: block;
     }
-
     .source-video {
-      position: fixed;
-      left: -9999px;
-      top: 0;
-      width: 2px;
-      height: 2px;
-      opacity: 0;
-      pointer-events: none;
+      position: fixed; left: -9999px; top: 0;
+      width: 2px; height: 2px; opacity: 0; pointer-events: none;
     }
-
     .overlay {
-      position: absolute;
-      left: 14px;
-      bottom: 12px;
-      background: rgba(5, 6, 10, 0.7);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      letter-spacing: 0.2px;
+      position: absolute; left: 14px; bottom: 12px;
+      background: rgba(5,6,10,0.7); color: var(--text);
+      padding: 8px 12px; border-radius: 8px;
+      font-size: 13px; letter-spacing: 0.2px;
     }
-
     .controls { display: grid; gap: 12px; }
-
     label { font-size: 13px; color: var(--muted); }
-
     select, button {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #0d111b;
-      color: var(--text);
-      font-size: 15px;
-      font-family: inherit;
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: #0d111b;
+      color: var(--text); font-size: 15px; font-family: inherit;
     }
-
     button {
       cursor: pointer;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #101215;
-      font-weight: 600;
+      color: #101215; font-weight: 600;
     }
-
     button.secondary { background: transparent; color: var(--text); }
-
     .info { font-size: 14px; color: var(--muted); line-height: 1.6; }
-
-    .file-list {
-      display: grid;
-      gap: 8px;
-      max-height: 280px;
-      overflow: auto;
-      padding-right: 4px;
-    }
-
+    .file-list { display: grid; gap: 8px; max-height: 280px; overflow: auto; padding-right: 4px; }
     .file-pill {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 10px;
-      border-radius: 10px;
-      background: #0c1018;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 13px;
-      color: var(--muted);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 10px; background: #0c1018;
+      border: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: var(--muted);
     }
-
     .file-pill span { color: var(--text); }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="hero">
-      <div>
-        <h1>Frame-by-Frame Video Player</h1>
-        <p>
-          Videos are loaded from Google Drive. Each decoded frame is painted to the canvas in real time —
-          the video element stays hidden; the canvas is the display.
-        </p>
-      </div>
-      <div class="status" id="status">Loading videos from Google Drive…</div>
+<div class="page">
+  <div class="hero">
+    <div>
+      <h1>Frame-by-Frame Video Player</h1>
+      <p>Videos stream from Google Drive via Apps Script proxy. Each frame is painted to the canvas in real time.</p>
     </div>
-
-    <div class="layout">
-      <div class="panel viewer">
-        <div class="display">
-          <canvas id="display" width="1280" height="720"></canvas>
-          <div class="overlay" id="overlay">Idle</div>
-        </div>
-
-        <div class="controls">
-          <div>
-            <label for="fileSelect">Choose a file</label>
-            <select id="fileSelect"></select>
-          </div>
-          <button id="playButton">▶ Play</button>
-          <button id="stopButton" class="secondary">■ Stop</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2 style="margin-top: 0;">Library</h2>
-        <p class="info">
-          Files fetched live from Google Drive via Apps Script.
-          Supported: <code>.mp4</code> and <code>.webm</code>.
-        </p>
-        <div class="file-list" id="fileList"></div>
-        <p class="info" id="hint"></p>
-      </div>
-    </div>
+    <div class="status" id="status">Loading videos from Google Drive…</div>
   </div>
 
-  <video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
+  <div class="layout">
+    <div class="panel viewer">
+      <div class="display">
+        <canvas id="display" width="1280" height="720"></canvas>
+        <div class="overlay" id="overlay">Idle</div>
+      </div>
+      <div class="controls">
+        <div>
+          <label for="fileSelect">Choose a file</label>
+          <select id="fileSelect"></select>
+        </div>
+        <button id="playButton">▶ Play</button>
+        <button id="stopButton" class="secondary">■ Stop</button>
+      </div>
+    </div>
 
-  <script>
-    (function () {
+    <div class="panel">
+      <h2 style="margin-top:0;">Library</h2>
+      <p class="info">
+        Files are streamed through the Apps Script proxy — no CORS issues.
+        Supported: <code>.mp4</code> and <code>.webm</code>.
+      </p>
+      <div class="file-list" id="fileList"></div>
+      <p class="info" id="hint"></p>
+    </div>
+  </div>
+</div>
 
-      // ── CONFIGURATION ─────────────────────────────────────────────────────────
-      // Paste your deployed Apps Script Web App URL here:
-      var DRIVE_INDEX_URL = "https://script.google.com/macros/s/AKfycbyr42z5mgmSF8DeeDQgKyvjaznxZVmP1Vqc1_Fo0vTmRW3TbJYDbt__xbcPeHxq531c/exec";
-      // ─────────────────────────────────────────────────────────────────────────
+<video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted></video>
 
-      var videoEl    = document.getElementById("sourceVideo");
-      var canvas     = document.getElementById("display");
-      var ctx        = canvas.getContext("2d");
-      var overlay    = document.getElementById("overlay");
-      var statusEl   = document.getElementById("status");
-      var selectEl   = document.getElementById("fileSelect");
-      var listEl     = document.getElementById("fileList");
-      var hintEl     = document.getElementById("hint");
-      var playBtn    = document.getElementById("playButton");
-      var stopBtn    = document.getElementById("stopButton");
+<script>
+(function () {
 
-      var videoItems         = [];
-      var activeItem         = null;
-      var rafId              = null;
-      var frameCount         = 0;
-      var lastTimestamp      = Date.now();
-      var lastPresentedFrame = 0;
-      var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
+  // ── CONFIGURATION ────────────────────────────────────────────────────────────
+  // Your deployed Apps Script Web App URL:
+  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyE9EgYHa_E0hZxmVgzDJAx_GLa5QjMwY4VnWInXgOQo1ZGR1s2dneAKkNsDnwykWkY/exec";
+  // ─────────────────────────────────────────────────────────────────────────────
 
-      // ── Helpers ───────────────────────────────────────────────────────────────
+  var videoEl    = document.getElementById("sourceVideo");
+  var canvas     = document.getElementById("display");
+  var ctx        = canvas.getContext("2d");
+  var overlay    = document.getElementById("overlay");
+  var statusEl   = document.getElementById("status");
+  var selectEl   = document.getElementById("fileSelect");
+  var listEl     = document.getElementById("fileList");
+  var hintEl     = document.getElementById("hint");
+  var playBtn    = document.getElementById("playButton");
+  var stopBtn    = document.getElementById("stopButton");
 
-      function setStatus(text) { statusEl.textContent = text; }
+  var videoItems         = [];
+  var activeItem         = null;
+  var rafId              = null;
+  var frameCount         = 0;
+  var lastTimestamp      = Date.now();
+  var lastPresentedFrame = 0;
+  var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
 
-      function basename(file) {
-        var d = file.lastIndexOf(".");
-        return d > 0 ? file.slice(0, d) : file;
-      }
+  // Build the streaming proxy URL for a given file ID
+  function proxyUrl(id) {
+    return SCRIPT_URL + "?action=stream&id=" + encodeURIComponent(id);
+  }
 
-      function nowMs() {
-        return (window.performance && typeof window.performance.now === "function")
-          ? window.performance.now() : Date.now();
-      }
+  function setStatus(t) { statusEl.textContent = t; }
+  function basename(f)  { var d = f.lastIndexOf("."); return d > 0 ? f.slice(0,d) : f; }
+  function nowMs()      { return window.performance ? window.performance.now() : Date.now(); }
 
-      // Convert a Drive file ID to a URL the <video> element can actually stream.
-      // The /file/d/{id}/preview endpoint works cross-origin for publicly shared files.
-      // For direct streaming we use the /uc?id=&export=download form but also try
-      // the open URL as a fallback source.
-      function driveStreamUrl(id) {
-        // This URL streams video content directly without a redirect wall:
-        return "https://drive.google.com/uc?id=" + id + "&export=download";
-      }
+  // ── Canvas ───────────────────────────────────────────────────────────────────
+  function resizeCanvas() {
+    var r = canvas.getBoundingClientRect();
+    var w = Math.max(1, Math.floor(r.width));
+    var h = Math.max(1, Math.floor(r.height));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  }
+  function clearDisplay() {
+    resizeCanvas();
+    ctx.fillStyle = "#05060a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
-      // ── Canvas ────────────────────────────────────────────────────────────────
+  // ── Playback ─────────────────────────────────────────────────────────────────
+  function stopPlayback() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    videoEl.pause();
+    overlay.textContent = "Stopped";
+  }
 
-      function resizeCanvas() {
-        var rect   = canvas.getBoundingClientRect();
-        var width  = Math.max(1, Math.floor(rect.width));
-        var height = Math.max(1, Math.floor(rect.height));
-        if (canvas.width !== width || canvas.height !== height) {
-          canvas.width  = width;
-          canvas.height = height;
-        }
-      }
+  function updateOverlay() {
+    var now = nowMs(), delta = now - lastTimestamp;
+    if (delta > 450) {
+      overlay.textContent = "Frames: " + frameCount + " | " + (frameCount / (delta/1000)).toFixed(1) + " fps";
+      frameCount = 0; lastTimestamp = now;
+    }
+  }
 
-      function clearDisplay() {
+  function drawFrame() {
+    if (videoEl.readyState >= 2 && !videoEl.paused && !videoEl.ended) {
+      resizeCanvas();
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      frameCount++;
+      updateOverlay();
+    }
+  }
+
+  function frameLoop() {
+    drawFrame();
+    if (!videoEl.paused && !videoEl.ended) rafId = requestAnimationFrame(frameLoop);
+  }
+
+  function runLoop() {
+    if (!usesVfc) { frameLoop(); return; }
+    var cb = function(_, meta) {
+      if (videoEl.paused || videoEl.ended) return;
+      if (meta && meta.presentedFrames !== lastPresentedFrame) {
+        lastPresentedFrame = meta.presentedFrames;
         resizeCanvas();
-        ctx.fillStyle = "#05060a";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        frameCount++;
+        updateOverlay();
       }
+      videoEl.requestVideoFrameCallback(cb);
+    };
+    videoEl.requestVideoFrameCallback(cb);
+  }
 
-      // ── Playback ──────────────────────────────────────────────────────────────
+  function playVideo(item) {
+    stopPlayback();
+    clearDisplay();
+    overlay.textContent   = "Loading…";
+    lastTimestamp         = nowMs();
+    frameCount            = 0;
+    lastPresentedFrame    = 0;
 
-      function stopPlayback() {
-        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        videoEl.pause();
-        overlay.textContent = "Stopped";
-      }
+    // Use Blob URL so the browser has no origin issues at all
+    overlay.textContent = "Fetching from proxy…";
+    setStatus("Downloading " + item.label + " via proxy…");
 
-      function updateOverlay() {
-        var now   = nowMs();
-        var delta = now - lastTimestamp;
-        if (delta > 450) {
-          var fps = frameCount / (delta / 1000);
-          overlay.textContent = "Frames: " + frameCount + " | " + fps.toFixed(1) + " fps";
-          frameCount    = 0;
-          lastTimestamp = now;
-        }
-      }
-
-      function drawVideoFrame() {
-        if (videoEl.readyState >= 2 && !videoEl.paused && !videoEl.ended) {
-          resizeCanvas();
-          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-          frameCount += 1;
-          updateOverlay();
-        }
-      }
-
-      function frameLoop() {
-        drawVideoFrame();
-        if (!videoEl.paused && !videoEl.ended) {
-          rafId = requestAnimationFrame(frameLoop);
-        }
-      }
-
-      function runFrameByFrameLoop() {
-        if (!usesVfc) { frameLoop(); return; }
-        var callback = function (_, metadata) {
-          if (videoEl.paused || videoEl.ended) return;
-          if (metadata && metadata.presentedFrames !== lastPresentedFrame) {
-            lastPresentedFrame = metadata.presentedFrames;
-            resizeCanvas();
-            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-            frameCount += 1;
-            updateOverlay();
-          }
-          videoEl.requestVideoFrameCallback(callback);
-        };
-        videoEl.requestVideoFrameCallback(callback);
-      }
-
-      function playVideo(item) {
-        stopPlayback();
-        clearDisplay();
-        overlay.textContent   = "Loading...";
-        lastTimestamp         = nowMs();
-        frameCount            = 0;
-        lastPresentedFrame    = 0;
-
-        // Remove old sources
-        videoEl.removeAttribute("src");
-        while (videoEl.firstChild) videoEl.removeChild(videoEl.firstChild);
-
-        // Primary source: direct download stream
-        var src1 = document.createElement("source");
-        src1.src  = driveStreamUrl(item.id);
-        src1.type = item.mimeType || "video/mp4";
-        videoEl.appendChild(src1);
-
+    fetch(proxyUrl(item.id))
+      .then(function(r) {
+        if (!r.ok) throw new Error("Proxy returned HTTP " + r.status);
+        return r.blob();
+      })
+      .then(function(blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        videoEl.src = blobUrl;
         videoEl.load();
 
-        videoEl.addEventListener("canplay", function onCanPlay() {
-          videoEl.removeEventListener("canplay", onCanPlay);
+        videoEl.oncanplay = function() {
+          videoEl.oncanplay = null;
           overlay.textContent = "Playing (frame-by-frame)";
           lastTimestamp = nowMs();
-          videoEl.play().then(function () {
-            runFrameByFrameLoop();
-          }).catch(function (err) {
+          videoEl.play().then(function() {
+            runLoop();
+          }).catch(function(err) {
             overlay.textContent = "Autoplay blocked — press Play again";
-            console.warn("Play failed:", err);
           });
-        });
-
-        videoEl.addEventListener("error", function onErr() {
-          videoEl.removeEventListener("error", onErr);
-          overlay.textContent = "Error loading video";
-          setStatus("Could not load: " + item.label + ". Check Drive sharing settings.");
-        });
-      }
-
-      // ── Library UI ────────────────────────────────────────────────────────────
-
-      function renderList(files) {
-        listEl.innerHTML = "";
-        files.forEach(function (file) {
-          var pill = document.createElement("div");
-          pill.className = "file-pill";
-
-          var nameSpan = document.createElement("span");
-          nameSpan.textContent = file.label;
-
-          var extSpan = document.createElement("span");
-          extSpan.textContent = file.ext || "video";
-
-          pill.appendChild(nameSpan);
-          pill.appendChild(extSpan);
-          listEl.appendChild(pill);
-        });
-      }
-
-      function buildSelect(files) {
-        selectEl.innerHTML = "";
-        files.forEach(function (file, i) {
-          var opt = document.createElement("option");
-          opt.value       = String(i);
-          opt.textContent = file.label;
-          selectEl.appendChild(opt);
-        });
-      }
-
-      // ── JSONP loader (bypasses CORS on Apps Script redirects) ─────────────────
-
-      function loadFilesViaJSONP(url, callback) {
-        var cbName = "__driveIndex_" + Date.now();
-        var script = document.createElement("script");
-        var timeout;
-
-        window[cbName] = function (data) {
-          clearTimeout(timeout);
-          script.parentNode && script.parentNode.removeChild(script);
-          delete window[cbName];
-          callback(null, data);
         };
 
-        timeout = setTimeout(function () {
-          script.parentNode && script.parentNode.removeChild(script);
-          delete window[cbName];
-          callback(new Error("JSONP timeout"), null);
-        }, 10000);
-
-        // Apps Script supports ?callback=fnName natively
-        script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + cbName;
-        document.head.appendChild(script);
-      }
-
-      // ── Parse response ────────────────────────────────────────────────────────
-
-      function parseDriveResponse(data) {
-        var list = Array.isArray(data) ? data
-                 : (data && Array.isArray(data.files)) ? data.files
-                 : [];
-
-        var supported = ["video/mp4", "video/webm"];
-        var files = [];
-
-        list.forEach(function (entry) {
-          if (!entry || entry.error) return;
-
-          var name     = entry.name || entry.filename || "";
-          var id       = entry.id   || "";
-          var mimeType = entry.mimeType || entry.mime || "";
-
-          if (supported.indexOf(mimeType) === -1) return;
-          if (!id) return;
-
-          files.push({
-            name:     name,
-            label:    basename(name),
-            ext:      mimeType === "video/mp4" ? "mp4" : "webm",
-            mimeType: mimeType,
-            id:       id,
-            url:      driveStreamUrl(id)
-          });
-        });
-
-        return files;
-      }
-
-      // ── Bootstrap ─────────────────────────────────────────────────────────────
-
-      function loadFiles() {
-        if (!DRIVE_INDEX_URL || DRIVE_INDEX_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE") {
-          setStatus("⚠️  Set DRIVE_INDEX_URL in videos.html first.");
-          hintEl.textContent = "Replace YOUR_APPS_SCRIPT_WEB_APP_URL_HERE with your deployed Apps Script URL.";
-          clearDisplay();
-          return;
-        }
-
-        setStatus("Fetching file list from Google Drive…");
-
-        loadFilesViaJSONP(DRIVE_INDEX_URL, function (err, data) {
-          if (err) {
-            // JSONP failed — fall back to fetch (works if served from same origin or CORS is fine)
-            fetch(DRIVE_INDEX_URL, { cache: "no-store" })
-              .then(function (r) { return r.json(); })
-              .then(function (data) { onData(data); })
-              .catch(function (fetchErr) {
-                setStatus("Failed to load: " + fetchErr.message);
-                hintEl.textContent = "Check your Apps Script URL and deployment settings.";
-              });
-            return;
-          }
-          onData(data);
-        });
-      }
-
-      function onData(data) {
-        var files = parseDriveResponse(data);
-        videoItems = files;
-
-        if (!files.length) {
-          setStatus("No MP4/WEBM files found in the Drive folder.");
-          hintEl.textContent = "Check the folder ID in your Apps Script and make sure files are .mp4 or .webm.";
-          clearDisplay();
-          overlay.textContent = "Idle";
-          return;
-        }
-
-        files.sort(function (a, b) { return a.label.localeCompare(b.label); });
-        renderList(files);
-        buildSelect(files);
-        activeItem     = files[0];
-        selectEl.value = "0";
-        setStatus("Loaded " + files.length + " file(s) from Google Drive.");
-        hintEl.textContent = "Select a video, then press Play.";
-        clearDisplay();
-        overlay.textContent = "Ready";
-      }
-
-      // ── Events ────────────────────────────────────────────────────────────────
-
-      selectEl.addEventListener("change", function (e) {
-        var index  = parseInt(e.target.value, 10);
-        activeItem = videoItems[index] || null;
-        overlay.textContent = "Ready";
+        videoEl.onerror = function() {
+          overlay.textContent = "Playback error";
+          setStatus("Error playing " + item.label);
+        };
+      })
+      .catch(function(err) {
+        overlay.textContent = "Fetch failed";
+        setStatus("Proxy fetch failed: " + err.message + ". Check the Apps Script URL.");
+        console.error(err);
       });
+  }
 
-      playBtn.addEventListener("click", function () {
-        if (!activeItem) { overlay.textContent = "No file selected"; return; }
-        playVideo(activeItem);
-      });
+  // ── Library UI ───────────────────────────────────────────────────────────────
+  function renderList(files) {
+    listEl.innerHTML = "";
+    files.forEach(function(f) {
+      var pill = document.createElement("div"); pill.className = "file-pill";
+      var n = document.createElement("span"); n.textContent = f.label;
+      var e = document.createElement("span"); e.textContent = f.ext || "video";
+      pill.appendChild(n); pill.appendChild(e); listEl.appendChild(pill);
+    });
+  }
 
-      stopBtn.addEventListener("click", stopPlayback);
+  function buildSelect(files) {
+    selectEl.innerHTML = "";
+    files.forEach(function(f, i) {
+      var o = document.createElement("option");
+      o.value = String(i); o.textContent = f.label;
+      selectEl.appendChild(o);
+    });
+  }
 
-      window.addEventListener("resize", resizeCanvas);
-      window.addEventListener("orientationchange", resizeCanvas);
+  // ── JSONP loader ─────────────────────────────────────────────────────────────
+  function jsonpLoad(url, callback) {
+    var cbName = "__driveIdx_" + Date.now();
+    var script = document.createElement("script");
+    var timer  = setTimeout(function() {
+      cleanup(); callback(new Error("Timeout"), null);
+    }, 12000);
 
-      clearDisplay();
-      loadFiles();
+    function cleanup() {
+      clearTimeout(timer);
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[cbName];
+    }
 
-    })();
-  </script>
+    window[cbName] = function(data) { cleanup(); callback(null, data); };
+    script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "action=list&callback=" + cbName;
+    script.onerror = function() { cleanup(); callback(new Error("Script load failed"), null); };
+    document.head.appendChild(script);
+  }
+
+  // ── Parse response ────────────────────────────────────────────────────────────
+  function parseFiles(data) {
+    var list = Array.isArray(data) ? data
+             : (data && Array.isArray(data.files)) ? data.files : [];
+    var supported = ["video/mp4", "video/webm"];
+    return list.filter(function(e) {
+      return e && !e.error && e.id && supported.indexOf(e.mimeType) !== -1;
+    }).map(function(e) {
+      return {
+        name:     e.name,
+        label:    basename(e.name),
+        ext:      e.mimeType === "video/mp4" ? "mp4" : "webm",
+        mimeType: e.mimeType,
+        id:       e.id
+      };
+    });
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────────
+  function loadFiles() {
+    if (!SCRIPT_URL || SCRIPT_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE") {
+      setStatus("⚠️  Set SCRIPT_URL in videos.html first.");
+      hintEl.textContent = "Replace YOUR_APPS_SCRIPT_WEB_APP_URL_HERE with your Apps Script deployment URL.";
+      return;
+    }
+
+    setStatus("Fetching file list…");
+    jsonpLoad(SCRIPT_URL, function(err, data) {
+      if (err) {
+        setStatus("List load failed: " + err.message);
+        hintEl.textContent = "Check your Apps Script URL and deployment settings.";
+        return;
+      }
+      onData(data);
+    });
+  }
+
+  function onData(data) {
+    var files = parseFiles(data);
+    videoItems = files;
+
+    if (!files.length) {
+      setStatus("No MP4/WEBM files found.");
+      hintEl.textContent = "Check the folder ID in the Apps Script.";
+      overlay.textContent = "Idle";
+      return;
+    }
+
+    files.sort(function(a,b) { return a.label.localeCompare(b.label); });
+    renderList(files);
+    buildSelect(files);
+    activeItem = files[0];
+    selectEl.value = "0";
+    setStatus("Loaded " + files.length + " file(s) from Google Drive.");
+    hintEl.textContent = "Select a video and press Play.";
+    overlay.textContent = "Ready";
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────────
+  selectEl.addEventListener("change", function(e) {
+    activeItem = videoItems[parseInt(e.target.value, 10)] || null;
+    overlay.textContent = "Ready";
+  });
+  playBtn.addEventListener("click", function() {
+    if (!activeItem) { overlay.textContent = "No file selected"; return; }
+    playVideo(activeItem);
+  });
+  stopBtn.addEventListener("click", stopPlayback);
+  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("orientationchange", resizeCanvas);
+
+  clearDisplay();
+  loadFiles();
+
+})();
+</script>
 </body>
 </html>
