@@ -17,9 +17,7 @@
       --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -32,11 +30,7 @@
       min-height: 100vh;
     }
 
-    .page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 20px 60px;
-    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
 
     .hero {
       display: flex;
@@ -49,18 +43,8 @@
       margin-bottom: 28px;
     }
 
-    .hero h1 {
-      font-size: clamp(26px, 4vw, 40px);
-      margin: 0 0 8px;
-      letter-spacing: 0.5px;
-    }
-
-    .hero p {
-      margin: 0;
-      color: var(--muted);
-      max-width: 560px;
-      line-height: 1.5;
-    }
+    .hero h1 { font-size: clamp(26px, 4vw, 40px); margin: 0 0 8px; letter-spacing: 0.5px; }
+    .hero p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
 
     .status {
       font-size: 14px;
@@ -79,11 +63,7 @@
       gap: 24px;
     }
 
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-    }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 
     .panel {
       background: var(--panel);
@@ -93,10 +73,7 @@
       padding: 18px;
     }
 
-    .viewer {
-      display: grid;
-      gap: 16px;
-    }
+    .viewer { display: grid; gap: 16px; }
 
     .display {
       position: relative;
@@ -140,18 +117,11 @@
       letter-spacing: 0.2px;
     }
 
-    .controls {
-      display: grid;
-      gap: 12px;
-    }
+    .controls { display: grid; gap: 12px; }
 
-    label {
-      font-size: 13px;
-      color: var(--muted);
-    }
+    label { font-size: 13px; color: var(--muted); }
 
-    select,
-    button {
+    select, button {
       width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
@@ -169,16 +139,9 @@
       font-weight: 600;
     }
 
-    button.secondary {
-      background: transparent;
-      color: var(--text);
-    }
+    button.secondary { background: transparent; color: var(--text); }
 
-    .info {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
+    .info { font-size: 14px; color: var(--muted); line-height: 1.6; }
 
     .file-list {
       display: grid;
@@ -200,13 +163,7 @@
       color: var(--muted);
     }
 
-    .file-pill span {
-      color: var(--text);
-    }
-
-    .hidden {
-      display: none;
-    }
+    .file-pill span { color: var(--text); }
   </style>
 </head>
 <body>
@@ -215,11 +172,11 @@
       <div>
         <h1>Frame-by-Frame Video Player</h1>
         <p>
-          This page renders video by taking each decoded frame and painting it to the canvas in real time.
-          The video element stays hidden; the canvas is the display.
+          Videos are loaded from Google Drive. Each decoded frame is painted to the canvas in real time —
+          the video element stays hidden; the canvas is the display.
         </p>
       </div>
-      <div class="status" id="status">Loading videos from manifest…</div>
+      <div class="status" id="status">Loading videos from Google Drive…</div>
     </div>
 
     <div class="layout">
@@ -241,9 +198,9 @@
 
       <div class="panel">
         <h2 style="margin-top: 0;">Library</h2>
-    <p class="info">
-          Files are loaded from <code>/videos-for-switch</code>. Only the name before the extension is shown.
-          Supported: <code>.mp4</code>, <code>.webm</code>, and <code>.mpeg</code>.
+        <p class="info">
+          Files are fetched live from your Google Drive folder via Apps Script.
+          Supported: <code>.mp4</code> and <code>.webm</code>.
         </p>
         <div class="file-list" id="fileList"></div>
         <p class="info" id="hint"></p>
@@ -252,80 +209,50 @@
   </div>
 
   <video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted></video>
+
   <script>
     (function () {
-      var FILE_EXTENSIONS = [".mp4", ".webm", ".mpeg"];
-      // Optional: set this to your deployed Google Apps Script web app URL.
-      var DRIVE_INDEX_URL = "https://script.google.com/macros/s/AKfycbxrRv1k8t0qwEcN7nkISZBhOVgljQRv-uVVZaXMP5ioJHJBB5q2Vts9NusAMzlbYLNS/exec";
-      var videoEl = document.getElementById("sourceVideo");
-      var canvas = document.getElementById("display");
-      var ctx = canvas.getContext("2d");
-      var overlay = document.getElementById("overlay");
-      var statusEl = document.getElementById("status");
-      var selectEl = document.getElementById("fileSelect");
-      var listEl = document.getElementById("fileList");
-      var hintEl = document.getElementById("hint");
-      var playBtn = document.getElementById("playButton");
-      var stopBtn = document.getElementById("stopButton");
-      var folderBase = new URL("./videos-for-switch/", window.location.href);
-      var manifestUrl = new URL("./manifest.json", folderBase).toString();
+      // ─────────────────────────────────────────────────────────────────────────
+      // CONFIGURATION — paste your deployed Apps Script Web App URL here:
+      // ─────────────────────────────────────────────────────────────────────────
+      var DRIVE_INDEX_URL = "https://script.google.com/macros/s/AKfycbzZZmk8DZXPvhaF6hSKh6mI_Xnz6meVOufTPOZsatbeukshjXP8PYJEphp879tiRFeI/exec";
+      // ─────────────────────────────────────────────────────────────────────────
 
-      var videoItems = [];
-      var activeItem = null;
-      var rafId = null;
-      var frameCount = 0;
-      var lastTimestamp = Date.now();
+      var SUPPORTED_MIME_TYPES = ["video/mp4", "video/webm"];
+
+      var videoEl   = document.getElementById("sourceVideo");
+      var canvas    = document.getElementById("display");
+      var ctx       = canvas.getContext("2d");
+      var overlay   = document.getElementById("overlay");
+      var statusEl  = document.getElementById("status");
+      var selectEl  = document.getElementById("fileSelect");
+      var listEl    = document.getElementById("fileList");
+      var hintEl    = document.getElementById("hint");
+      var playBtn   = document.getElementById("playButton");
+      var stopBtn   = document.getElementById("stopButton");
+
+      var videoItems        = [];
+      var activeItem        = null;
+      var rafId             = null;
+      var frameCount        = 0;
+      var lastTimestamp     = Date.now();
       var lastPresentedFrame = 0;
       var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
 
-      function setStatus(text) {
-        statusEl.textContent = text;
-      }
-
-      function basename(file) {
-        var lastDot = file.lastIndexOf(".");
-        return lastDot > 0 ? file.slice(0, lastDot) : file;
-      }
-
-      function hasVideoExtension(file) {
-        var lower = String(file).toLowerCase();
-        for (var i = 0; i < FILE_EXTENSIONS.length; i += 1) {
-          if (lower.slice(-FILE_EXTENSIONS[i].length) === FILE_EXTENSIONS[i]) {
-            return true;
-          }
-        }
-        return false;
-      }
-
-      function getExtension(file) {
-        var extMatch = String(file).match(/\.([a-z0-9]+)$/i);
-        return extMatch ? extMatch[1].toLowerCase() : "";
-      }
-
-      function getExtensionFromMimeType(mimeType) {
-        var value = String(mimeType || "").toLowerCase();
-        if (value === "video/mp4") return "mp4";
-        if (value === "video/webm") return "webm";
-        if (value === "video/mpeg") return "mpeg";
-        return "";
-      }
-
-      function toLocalUrl(file) {
-        return new URL(file, folderBase).toString();
-      }
+      function setStatus(text) { statusEl.textContent = text; }
+      function basename(file) { var d = file.lastIndexOf("."); return d > 0 ? file.slice(0, d) : file; }
 
       function nowMs() {
         return (window.performance && typeof window.performance.now === "function")
-          ? window.performance.now()
-          : Date.now();
+          ? window.performance.now() : Date.now();
       }
 
       function resizeCanvas() {
-        var rect = canvas.getBoundingClientRect();
-        var width = Math.max(1, Math.floor(rect.width));
+        var rect   = canvas.getBoundingClientRect();
+        var width  = Math.max(1, Math.floor(rect.width));
         var height = Math.max(1, Math.floor(rect.height));
         if (canvas.width !== width || canvas.height !== height) {
-          canvas.width = width;
+          canvas.width  = width;
           canvas.height = height;
         }
       }
@@ -337,21 +264,18 @@
       }
 
       function stopPlayback() {
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         videoEl.pause();
         overlay.textContent = "Stopped";
       }
 
       function updateOverlay() {
-        var now = nowMs();
+        var now   = nowMs();
         var delta = now - lastTimestamp;
         if (delta > 450) {
           var fps = frameCount / (delta / 1000);
           overlay.textContent = "Frames: " + frameCount + " | " + fps.toFixed(1) + " fps";
-          frameCount = 0;
+          frameCount    = 0;
           lastTimestamp = now;
         }
       }
@@ -373,14 +297,9 @@
       }
 
       function runFrameByFrameLoop() {
-        if (!usesVfc) {
-          frameLoop();
-          return;
-        }
+        if (!usesVfc) { frameLoop(); return; }
         var callback = function (_, metadata) {
-          if (videoEl.paused || videoEl.ended) {
-            return;
-          }
+          if (videoEl.paused || videoEl.ended) return;
           if (metadata && metadata.presentedFrames !== lastPresentedFrame) {
             lastPresentedFrame = metadata.presentedFrames;
             resizeCanvas();
@@ -396,13 +315,12 @@
       function playVideo(item) {
         stopPlayback();
         clearDisplay();
-        overlay.textContent = "Starting...";
-        lastTimestamp = nowMs();
-        frameCount = 0;
-        lastPresentedFrame = 0;
-
-        videoEl.src = item.url;
-        videoEl.currentTime = 0;
+        overlay.textContent   = "Starting...";
+        lastTimestamp         = nowMs();
+        frameCount            = 0;
+        lastPresentedFrame    = 0;
+        videoEl.src           = item.url;
+        videoEl.currentTime   = 0;
 
         var playPromise = videoEl.play();
         if (playPromise && typeof playPromise.then === "function") {
@@ -420,260 +338,115 @@
 
       function renderList(files) {
         listEl.innerHTML = "";
-        for (var i = 0; i < files.length; i += 1) {
-          var file = files[i];
-          var pill = document.createElement("div");
+        files.forEach(function (file) {
+          var pill     = document.createElement("div");
           pill.className = "file-pill";
-
           var nameSpan = document.createElement("span");
           nameSpan.textContent = file.label;
+          var extSpan  = document.createElement("span");
+          extSpan.textContent  = file.ext || "video";
           pill.appendChild(nameSpan);
-
-          var extSpan = document.createElement("span");
-          extSpan.textContent = (file.ext || "video") + " | " + (file.source || "unknown");
           pill.appendChild(extSpan);
-
           listEl.appendChild(pill);
-        }
+        });
       }
 
       function buildSelect(files) {
         selectEl.innerHTML = "";
-        for (var i = 0; i < files.length; i += 1) {
-          var option = document.createElement("option");
-          option.value = String(i);
-          option.textContent = files[i].label;
-          selectEl.appendChild(option);
-        }
+        files.forEach(function (file, i) {
+          var opt = document.createElement("option");
+          opt.value       = String(i);
+          opt.textContent = file.label;
+          selectEl.appendChild(opt);
+        });
       }
 
-      function parseManifestData(data) {
-        if (!Array.isArray(data)) {
-          return [];
-        }
+      // ── Parse the Apps Script response ───────────────────────────────────────
+      // Expected shape from Apps Script:
+      //   { "files": [ { "name": "foo.mp4", "url": "https://...", "mimeType": "video/mp4" }, … ] }
+      function parseDriveResponse(data) {
+        var list = Array.isArray(data) ? data
+                 : (data && Array.isArray(data.files)) ? data.files
+                 : [];
+
         var files = [];
-        for (var i = 0; i < data.length; i += 1) {
-          if (typeof data[i] === "string" && hasVideoExtension(data[i])) {
-            files.push({
-              source: "local",
-              name: data[i],
-              label: basename(data[i]),
-              ext: getExtension(data[i]),
-              url: toLocalUrl(data[i])
-            });
-          }
-        }
-        return files;
-      }
+        list.forEach(function (entry) {
+          var name     = entry.name || entry.filename || "";
+          var url      = entry.url  || entry.downloadUrl || "";
+          var mimeType = entry.mimeType || entry.mime || "";
 
-      function parseDriveData(data) {
-        var root = data;
-        if (data && typeof data === "object" && Array.isArray(data.files)) {
-          root = data.files;
-        }
-        if (!Array.isArray(root)) {
-          return [];
-        }
-        var files = [];
-        for (var i = 0; i < root.length; i += 1) {
-          var entry = root[i];
-          var name = "";
-          var url = "";
-          var ext = "";
-          if (typeof entry === "string") {
-            url = entry;
-            name = entry.split("?")[0].split("/").pop() || "drive-file";
-          } else if (entry && typeof entry === "object") {
-            name = entry.name || entry.filename || entry.title || "";
-            url = entry.url || entry.downloadUrl || entry.link || "";
-            ext = String(entry.ext || entry.extension || "").toLowerCase();
-            if (!ext) {
-              ext = getExtensionFromMimeType(entry.mimeType || entry.mime || "");
-            }
-          }
+          // Filter to supported types only
+          if (SUPPORTED_MIME_TYPES.indexOf(mimeType) === -1) return;
+          if (!url) return;
 
-          if (!ext && name) {
-            ext = getExtension(name);
-          }
-
-          if (!ext && hasVideoExtension(url)) {
-            ext = getExtension(url.split("?")[0]);
-          }
-
-          if (!url) {
-            continue;
-          }
-
-          if (ext && FILE_EXTENSIONS.indexOf("." + ext) === -1) {
-            continue;
-          }
-
-          if (!ext && !hasVideoExtension(name)) {
-            continue;
-          }
-
-          if (!name) {
-            name = "drive-video-" + (i + 1) + (ext ? "." + ext : "");
-          }
-
+          var ext = mimeType === "video/mp4" ? "mp4" : "webm";
           files.push({
-            source: "drive",
-            name: name,
+            name:  name,
             label: basename(name),
-            ext: ext || getExtension(name) || "video",
-            url: url
+            ext:   ext,
+            url:   url
           });
-        }
+        });
+
         return files;
-      }
-
-      function fetchManifest(callback) {
-        if (window.fetch) {
-          fetch(manifestUrl, { cache: "no-store" })
-            .then(function (response) {
-              if (!response.ok) {
-                throw new Error("Manifest not found");
-              }
-              return response.json();
-            })
-            .then(function (data) {
-              callback(parseManifestData(data));
-            })
-            .catch(function () {
-              callback([]);
-            });
-          return;
-        }
-
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", manifestUrl, true);
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4) {
-            return;
-          }
-          if (xhr.status < 200 || xhr.status >= 300) {
-            callback([]);
-            return;
-          }
-          try {
-            var parsed = JSON.parse(xhr.responseText);
-            callback(parseManifestData(parsed));
-          } catch (e) {
-            callback([]);
-          }
-        };
-        xhr.send();
-      }
-
-      function fetchDriveIndex(callback) {
-        if (!DRIVE_INDEX_URL) {
-          callback([]);
-          return;
-        }
-
-        if (window.fetch) {
-          fetch(DRIVE_INDEX_URL, { cache: "no-store" })
-            .then(function (response) {
-              if (!response.ok) {
-                throw new Error("Drive index not found");
-              }
-              return response.json();
-            })
-            .then(function (data) {
-              callback(parseDriveData(data));
-            })
-            .catch(function () {
-              callback([]);
-            });
-          return;
-        }
-
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", DRIVE_INDEX_URL, true);
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4) {
-            return;
-          }
-          if (xhr.status < 200 || xhr.status >= 300) {
-            callback([]);
-            return;
-          }
-          try {
-            var parsed = JSON.parse(xhr.responseText);
-            callback(parseDriveData(parsed));
-          } catch (e) {
-            callback([]);
-          }
-        };
-        xhr.send();
-      }
-
-      function mergeItems(localItems, driveItems) {
-        var merged = [];
-        var seen = {};
-        var all = localItems.concat(driveItems);
-        for (var i = 0; i < all.length; i += 1) {
-          var key = (all[i].url || "") + "|" + (all[i].name || "");
-          if (seen[key]) {
-            continue;
-          }
-          seen[key] = true;
-          merged.push(all[i]);
-        }
-        return merged;
       }
 
       function loadFiles() {
-        setStatus("Loading local and Google Drive video indexes...");
-        fetchManifest(function (localFiles) {
-          fetchDriveIndex(function (driveFiles) {
-            var files = mergeItems(localFiles, driveFiles);
+        if (!DRIVE_INDEX_URL || DRIVE_INDEX_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE") {
+          setStatus("⚠️  Set DRIVE_INDEX_URL in videos.html first.");
+          hintEl.textContent = "Open videos.html and replace YOUR_APPS_SCRIPT_WEB_APP_URL_HERE with your deployed Apps Script URL.";
+          clearDisplay();
+          return;
+        }
+
+        setStatus("Fetching file list from Google Drive…");
+
+        fetch(DRIVE_INDEX_URL, { cache: "no-store" })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            var files = parseDriveResponse(data);
             videoItems = files;
 
             if (!files.length) {
-              setStatus("No MP4/WEBM/MPEG files found.");
-              hintEl.textContent = "Add local files to manifest.json or set DRIVE_INDEX_URL in videos.html.";
+              setStatus("No MP4/WEBM files found in the Drive folder.");
+              hintEl.textContent = "Make sure the folder ID in your Apps Script is correct and the folder has .mp4 or .webm files.";
               clearDisplay();
               overlay.textContent = "Idle";
               return;
             }
 
-            files.sort(function (a, b) {
-              return a.label.localeCompare(b.label);
-            });
-
+            files.sort(function (a, b) { return a.label.localeCompare(b.label); });
             renderList(files);
             buildSelect(files);
-            activeItem = files[0];
-            selectEl.value = "0";
-            setStatus(
-              "Loaded " + files.length + " file(s): " +
-              localFiles.length + " local, " + driveFiles.length + " Google Drive."
-            );
+            activeItem      = files[0];
+            selectEl.value  = "0";
+            setStatus("Loaded " + files.length + " file(s) from Google Drive.");
             hintEl.textContent = "Select a video, then press Play.";
             clearDisplay();
             overlay.textContent = "Ready";
+          })
+          .catch(function (err) {
+            setStatus("Failed to load from Drive: " + err.message);
+            hintEl.textContent = "Check the Apps Script URL, deployment permissions, and browser console for details.";
+            clearDisplay();
           });
-        });
       }
 
-      selectEl.addEventListener("change", function (event) {
-        var index = parseInt(event.target.value, 10);
+      selectEl.addEventListener("change", function (e) {
+        var index = parseInt(e.target.value, 10);
         activeItem = videoItems[index] || null;
         overlay.textContent = "Ready";
       });
 
       playBtn.addEventListener("click", function () {
-        if (!activeItem) {
-          overlay.textContent = "No file selected";
-          return;
-        }
+        if (!activeItem) { overlay.textContent = "No file selected"; return; }
         playVideo(activeItem);
       });
 
-      stopBtn.addEventListener("click", function () {
-        stopPlayback();
-      });
+      stopBtn.addEventListener("click", stopPlayback);
 
       window.addEventListener("resize", resizeCanvas);
       window.addEventListener("orientationchange", resizeCanvas);
