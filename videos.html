@@ -44,7 +44,7 @@
     }
 
     .hero h1 { font-size: clamp(26px, 4vw, 40px); margin: 0 0 8px; letter-spacing: 0.5px; }
-    .hero p { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
+    .hero p   { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.5; }
 
     .status {
       font-size: 14px;
@@ -191,15 +191,15 @@
             <label for="fileSelect">Choose a file</label>
             <select id="fileSelect"></select>
           </div>
-          <button id="playButton">Play</button>
-          <button id="stopButton" class="secondary">Stop</button>
+          <button id="playButton">▶ Play</button>
+          <button id="stopButton" class="secondary">■ Stop</button>
         </div>
       </div>
 
       <div class="panel">
         <h2 style="margin-top: 0;">Library</h2>
         <p class="info">
-          Files are fetched live from your Google Drive folder via Apps Script.
+          Files fetched live from Google Drive via Apps Script.
           Supported: <code>.mp4</code> and <code>.webm</code>.
         </p>
         <div class="file-list" id="fileList"></div>
@@ -208,44 +208,59 @@
     </div>
   </div>
 
-  <video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted></video>
+  <video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
 
   <script>
     (function () {
-      // ─────────────────────────────────────────────────────────────────────────
-      // CONFIGURATION — paste your deployed Apps Script Web App URL here:
-      // ─────────────────────────────────────────────────────────────────────────
+
+      // ── CONFIGURATION ─────────────────────────────────────────────────────────
+      // Paste your deployed Apps Script Web App URL here:
       var DRIVE_INDEX_URL = "https://script.google.com/macros/s/AKfycbzZZmk8DZXPvhaF6hSKh6mI_Xnz6meVOufTPOZsatbeukshjXP8PYJEphp879tiRFeI/exec";
       // ─────────────────────────────────────────────────────────────────────────
 
-      var SUPPORTED_MIME_TYPES = ["video/mp4", "video/webm"];
+      var videoEl    = document.getElementById("sourceVideo");
+      var canvas     = document.getElementById("display");
+      var ctx        = canvas.getContext("2d");
+      var overlay    = document.getElementById("overlay");
+      var statusEl   = document.getElementById("status");
+      var selectEl   = document.getElementById("fileSelect");
+      var listEl     = document.getElementById("fileList");
+      var hintEl     = document.getElementById("hint");
+      var playBtn    = document.getElementById("playButton");
+      var stopBtn    = document.getElementById("stopButton");
 
-      var videoEl   = document.getElementById("sourceVideo");
-      var canvas    = document.getElementById("display");
-      var ctx       = canvas.getContext("2d");
-      var overlay   = document.getElementById("overlay");
-      var statusEl  = document.getElementById("status");
-      var selectEl  = document.getElementById("fileSelect");
-      var listEl    = document.getElementById("fileList");
-      var hintEl    = document.getElementById("hint");
-      var playBtn   = document.getElementById("playButton");
-      var stopBtn   = document.getElementById("stopButton");
-
-      var videoItems        = [];
-      var activeItem        = null;
-      var rafId             = null;
-      var frameCount        = 0;
-      var lastTimestamp     = Date.now();
+      var videoItems         = [];
+      var activeItem         = null;
+      var rafId              = null;
+      var frameCount         = 0;
+      var lastTimestamp      = Date.now();
       var lastPresentedFrame = 0;
       var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
 
+      // ── Helpers ───────────────────────────────────────────────────────────────
+
       function setStatus(text) { statusEl.textContent = text; }
-      function basename(file) { var d = file.lastIndexOf("."); return d > 0 ? file.slice(0, d) : file; }
+
+      function basename(file) {
+        var d = file.lastIndexOf(".");
+        return d > 0 ? file.slice(0, d) : file;
+      }
 
       function nowMs() {
         return (window.performance && typeof window.performance.now === "function")
           ? window.performance.now() : Date.now();
       }
+
+      // Convert a Drive file ID to a URL the <video> element can actually stream.
+      // The /file/d/{id}/preview endpoint works cross-origin for publicly shared files.
+      // For direct streaming we use the /uc?id=&export=download form but also try
+      // the open URL as a fallback source.
+      function driveStreamUrl(id) {
+        // This URL streams video content directly without a redirect wall:
+        return "https://drive.google.com/uc?id=" + id + "&export=download";
+      }
+
+      // ── Canvas ────────────────────────────────────────────────────────────────
 
       function resizeCanvas() {
         var rect   = canvas.getBoundingClientRect();
@@ -262,6 +277,8 @@
         ctx.fillStyle = "#05060a";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
+
+      // ── Playback ──────────────────────────────────────────────────────────────
 
       function stopPlayback() {
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
@@ -315,36 +332,56 @@
       function playVideo(item) {
         stopPlayback();
         clearDisplay();
-        overlay.textContent   = "Starting...";
+        overlay.textContent   = "Loading...";
         lastTimestamp         = nowMs();
         frameCount            = 0;
         lastPresentedFrame    = 0;
-        videoEl.src           = item.url;
-        videoEl.currentTime   = 0;
 
-        var playPromise = videoEl.play();
-        if (playPromise && typeof playPromise.then === "function") {
-          playPromise.then(function () {
-            overlay.textContent = "Playing (frame-by-frame)";
-            runFrameByFrameLoop();
-          }).catch(function () {
-            overlay.textContent = "Press Play to start";
-          });
-        } else {
+        // Remove old sources
+        videoEl.removeAttribute("src");
+        while (videoEl.firstChild) videoEl.removeChild(videoEl.firstChild);
+
+        // Primary source: direct download stream
+        var src1 = document.createElement("source");
+        src1.src  = driveStreamUrl(item.id);
+        src1.type = item.mimeType || "video/mp4";
+        videoEl.appendChild(src1);
+
+        videoEl.load();
+
+        videoEl.addEventListener("canplay", function onCanPlay() {
+          videoEl.removeEventListener("canplay", onCanPlay);
           overlay.textContent = "Playing (frame-by-frame)";
-          runFrameByFrameLoop();
-        }
+          lastTimestamp = nowMs();
+          videoEl.play().then(function () {
+            runFrameByFrameLoop();
+          }).catch(function (err) {
+            overlay.textContent = "Autoplay blocked — press Play again";
+            console.warn("Play failed:", err);
+          });
+        });
+
+        videoEl.addEventListener("error", function onErr() {
+          videoEl.removeEventListener("error", onErr);
+          overlay.textContent = "Error loading video";
+          setStatus("Could not load: " + item.label + ". Check Drive sharing settings.");
+        });
       }
+
+      // ── Library UI ────────────────────────────────────────────────────────────
 
       function renderList(files) {
         listEl.innerHTML = "";
         files.forEach(function (file) {
-          var pill     = document.createElement("div");
+          var pill = document.createElement("div");
           pill.className = "file-pill";
+
           var nameSpan = document.createElement("span");
           nameSpan.textContent = file.label;
-          var extSpan  = document.createElement("span");
-          extSpan.textContent  = file.ext || "video";
+
+          var extSpan = document.createElement("span");
+          extSpan.textContent = file.ext || "video";
+
           pill.appendChild(nameSpan);
           pill.appendChild(extSpan);
           listEl.appendChild(pill);
@@ -361,82 +398,119 @@
         });
       }
 
-      // ── Parse the Apps Script response ───────────────────────────────────────
-      // Expected shape from Apps Script:
-      //   { "files": [ { "name": "foo.mp4", "url": "https://...", "mimeType": "video/mp4" }, … ] }
+      // ── JSONP loader (bypasses CORS on Apps Script redirects) ─────────────────
+
+      function loadFilesViaJSONP(url, callback) {
+        var cbName = "__driveIndex_" + Date.now();
+        var script = document.createElement("script");
+        var timeout;
+
+        window[cbName] = function (data) {
+          clearTimeout(timeout);
+          script.parentNode && script.parentNode.removeChild(script);
+          delete window[cbName];
+          callback(null, data);
+        };
+
+        timeout = setTimeout(function () {
+          script.parentNode && script.parentNode.removeChild(script);
+          delete window[cbName];
+          callback(new Error("JSONP timeout"), null);
+        }, 10000);
+
+        // Apps Script supports ?callback=fnName natively
+        script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + cbName;
+        document.head.appendChild(script);
+      }
+
+      // ── Parse response ────────────────────────────────────────────────────────
+
       function parseDriveResponse(data) {
         var list = Array.isArray(data) ? data
                  : (data && Array.isArray(data.files)) ? data.files
                  : [];
 
+        var supported = ["video/mp4", "video/webm"];
         var files = [];
+
         list.forEach(function (entry) {
+          if (!entry || entry.error) return;
+
           var name     = entry.name || entry.filename || "";
-          var url      = entry.url  || entry.downloadUrl || "";
+          var id       = entry.id   || "";
           var mimeType = entry.mimeType || entry.mime || "";
 
-          // Filter to supported types only
-          if (SUPPORTED_MIME_TYPES.indexOf(mimeType) === -1) return;
-          if (!url) return;
+          if (supported.indexOf(mimeType) === -1) return;
+          if (!id) return;
 
-          var ext = mimeType === "video/mp4" ? "mp4" : "webm";
           files.push({
-            name:  name,
-            label: basename(name),
-            ext:   ext,
-            url:   url
+            name:     name,
+            label:    basename(name),
+            ext:      mimeType === "video/mp4" ? "mp4" : "webm",
+            mimeType: mimeType,
+            id:       id,
+            url:      driveStreamUrl(id)
           });
         });
 
         return files;
       }
 
+      // ── Bootstrap ─────────────────────────────────────────────────────────────
+
       function loadFiles() {
         if (!DRIVE_INDEX_URL || DRIVE_INDEX_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE") {
           setStatus("⚠️  Set DRIVE_INDEX_URL in videos.html first.");
-          hintEl.textContent = "Open videos.html and replace YOUR_APPS_SCRIPT_WEB_APP_URL_HERE with your deployed Apps Script URL.";
+          hintEl.textContent = "Replace YOUR_APPS_SCRIPT_WEB_APP_URL_HERE with your deployed Apps Script URL.";
           clearDisplay();
           return;
         }
 
         setStatus("Fetching file list from Google Drive…");
 
-        fetch(DRIVE_INDEX_URL, { cache: "no-store" })
-          .then(function (r) {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.json();
-          })
-          .then(function (data) {
-            var files = parseDriveResponse(data);
-            videoItems = files;
-
-            if (!files.length) {
-              setStatus("No MP4/WEBM files found in the Drive folder.");
-              hintEl.textContent = "Make sure the folder ID in your Apps Script is correct and the folder has .mp4 or .webm files.";
-              clearDisplay();
-              overlay.textContent = "Idle";
-              return;
-            }
-
-            files.sort(function (a, b) { return a.label.localeCompare(b.label); });
-            renderList(files);
-            buildSelect(files);
-            activeItem      = files[0];
-            selectEl.value  = "0";
-            setStatus("Loaded " + files.length + " file(s) from Google Drive.");
-            hintEl.textContent = "Select a video, then press Play.";
-            clearDisplay();
-            overlay.textContent = "Ready";
-          })
-          .catch(function (err) {
-            setStatus("Failed to load from Drive: " + err.message);
-            hintEl.textContent = "Check the Apps Script URL, deployment permissions, and browser console for details.";
-            clearDisplay();
-          });
+        loadFilesViaJSONP(DRIVE_INDEX_URL, function (err, data) {
+          if (err) {
+            // JSONP failed — fall back to fetch (works if served from same origin or CORS is fine)
+            fetch(DRIVE_INDEX_URL, { cache: "no-store" })
+              .then(function (r) { return r.json(); })
+              .then(function (data) { onData(data); })
+              .catch(function (fetchErr) {
+                setStatus("Failed to load: " + fetchErr.message);
+                hintEl.textContent = "Check your Apps Script URL and deployment settings.";
+              });
+            return;
+          }
+          onData(data);
+        });
       }
 
+      function onData(data) {
+        var files = parseDriveResponse(data);
+        videoItems = files;
+
+        if (!files.length) {
+          setStatus("No MP4/WEBM files found in the Drive folder.");
+          hintEl.textContent = "Check the folder ID in your Apps Script and make sure files are .mp4 or .webm.";
+          clearDisplay();
+          overlay.textContent = "Idle";
+          return;
+        }
+
+        files.sort(function (a, b) { return a.label.localeCompare(b.label); });
+        renderList(files);
+        buildSelect(files);
+        activeItem     = files[0];
+        selectEl.value = "0";
+        setStatus("Loaded " + files.length + " file(s) from Google Drive.");
+        hintEl.textContent = "Select a video, then press Play.";
+        clearDisplay();
+        overlay.textContent = "Ready";
+      }
+
+      // ── Events ────────────────────────────────────────────────────────────────
+
       selectEl.addEventListener("change", function (e) {
-        var index = parseInt(e.target.value, 10);
+        var index  = parseInt(e.target.value, 10);
         activeItem = videoItems[index] || null;
         overlay.textContent = "Ready";
       });
@@ -453,6 +527,7 @@
 
       clearDisplay();
       loadFiles();
+
     })();
   </script>
 </body>
