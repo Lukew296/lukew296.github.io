@@ -1,356 +1,552 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Video Player</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: #000;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Videos</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #121622;
+      --panel-2: #0f1320;
+      --text: #e6e9f0;
+      --muted: #a5adba;
+      --accent: #f4b43a;
+      --accent-2: #ff7a59;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
 
-/* ── BROWSE SCREEN ───────────────────────────────────── */
-#browseScreen {
-  padding: 20px;
-  height: 100vh;
-  overflow-y: auto;
-}
-#browseScreen h1 {
-  font-size: 20px;
-  color: #f4b43a;
-  margin-bottom: 16px;
-}
-.vbtn {
-  display: block;
-  width: 100%;
-  padding: 16px;
-  margin-bottom: 10px;
-  background: #1a1f2e;
-  border: 2px solid #333;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 16px;
-  text-align: left;
-  cursor: pointer;
-  font-family: Arial, sans-serif;
-}
-.vbtn:focus { border-color: #f4b43a; outline: none; background: #2a2f3e; }
+    * {
+      box-sizing: border-box;
+    }
 
-/* ── PLAYER SCREEN ───────────────────────────────────── */
-#playerScreen {
-  display: none;
-  width: 100vw;
-  height: 100vh;
-  background: #000;
-  position: relative;
-}
-canvas {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-}
-/* Hidden video — must be in DOM and not display:none for Switch compat */
-#vid {
-  position: absolute;
-  left: 0; top: 0;
-  width: 1px; height: 1px;
-  opacity: 0.01;
-  pointer-events: none;
-}
-#hud {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: 10px 16px;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-#hud button {
-  padding: 10px 20px;
-  border: 2px solid #f4b43a;
-  background: transparent;
-  color: #f4b43a;
-  font-size: 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: Arial, sans-serif;
-}
-#hud button:focus { background: #f4b43a; color: #000; outline: none; }
-#hud #info { font-size: 13px; color: #aaa; flex: 1; }
-#status {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  font-size: 18px;
-  color: #fff;
-  background: rgba(0,0,0,0.75);
-  padding: 12px 20px;
-  border-radius: 8px;
-  text-align: center;
-  pointer-events: none;
-}
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(244, 180, 58, 0.18), transparent 60%),
+        radial-gradient(900px 500px at 90% 10%, rgba(255, 122, 89, 0.16), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-/* ── CANVAS TEST ─────────────────────────────────────── */
-#testScreen {
-  display: none;
-  padding: 20px;
-}
-#testScreen p { font-size: 15px; line-height: 1.7; color: #ccc; margin-bottom: 10px; }
-#testScreen .vbtn { max-width: 300px; }
-</style>
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    .hero {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(26px, 4vw, 40px);
+      margin: 0 0 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.5;
+    }
+
+    .status {
+      font-size: 14px;
+      color: var(--muted);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      min-width: 220px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .viewer {
+      display: grid;
+      gap: 16px;
+    }
+
+    .display {
+      position: relative;
+      background: #05060a;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      width: 100%;
+      height: 0;
+      padding-top: 56.25%;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .source-video {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 2px;
+      height: 2px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .overlay {
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      background: rgba(5, 6, 10, 0.7);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    select,
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0d111b;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #101215;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+    }
+
+    .info {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .file-list {
+      display: grid;
+      gap: 8px;
+      max-height: 280px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .file-pill {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #0c1018;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .file-pill span {
+      color: var(--text);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
+  <div class="page">
+    <div class="hero">
+      <div>
+        <h1>Frame-by-Frame Video Player</h1>
+        <p>
+          This page renders video by taking each decoded frame and painting it to the canvas in real time.
+          The video element stays hidden; the canvas is the display.
+        </p>
+      </div>
+      <div class="status" id="status">Loading videos from manifest…</div>
+    </div>
 
-<!-- SCREEN 1: file browser -->
-<div id="browseScreen">
-  <h1>&#9654; Videos</h1>
-  <div id="fileList"><p style="color:#888">Loading...</p></div>
-</div>
+    <div class="layout">
+      <div class="panel viewer">
+        <div class="display">
+          <canvas id="display" width="1280" height="720"></canvas>
+          <div class="overlay" id="overlay">Idle</div>
+        </div>
 
-<!-- SCREEN 2: player -->
-<div id="playerScreen">
-  <canvas id="cvs"></canvas>
-  <video id="vid" playsinline webkit-playsinline muted preload="auto" crossorigin="anonymous"></video>
-  <div id="status">Loading...</div>
-  <div id="hud">
-    <button id="btnPlay">Play</button>
-    <button id="btnStop">Stop</button>
-    <button id="btnBack">&#8592; Back</button>
-    <span id="info"></span>
+        <div class="controls">
+          <div>
+            <label for="fileSelect">Choose a file</label>
+            <select id="fileSelect"></select>
+          </div>
+          <button id="playButton">Play</button>
+          <button id="stopButton" class="secondary">Stop</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 style="margin-top: 0;">Library</h2>
+        <p class="info">
+          Files are loaded from <code>/videos-for-switch</code>. Only the name before the extension is shown.
+          Supported: <code>.mp4</code>, <code>.webm</code>, and <code>.mpeg</code>.
+        </p>
+        <div class="file-list" id="fileList"></div>
+        <p class="info" id="hint"></p>
+      </div>
+    </div>
   </div>
-</div>
 
-<!-- SCREEN 3: canvas-blocked fallback -->
-<div id="testScreen">
-  <p id="testMsg"></p>
-  <button class="vbtn" id="btnFallback">Watch in native player instead</button>
-  <button class="vbtn" id="btnBackTest">&#8592; Back to list</button>
-</div>
+  <video id="sourceVideo" class="source-video" preload="auto" playsinline webkit-playsinline muted></video>
+  <script>
+    (function () {
+      var FILE_EXTENSIONS = [".mp4", ".webm", ".mpeg"];
+      var videoEl = document.getElementById("sourceVideo");
+      var canvas = document.getElementById("display");
+      var ctx = canvas.getContext("2d");
+      var overlay = document.getElementById("overlay");
+      var statusEl = document.getElementById("status");
+      var selectEl = document.getElementById("fileSelect");
+      var listEl = document.getElementById("fileList");
+      var hintEl = document.getElementById("hint");
+      var playBtn = document.getElementById("playButton");
+      var stopBtn = document.getElementById("stopButton");
+      var folderBase = new URL("./videos-for-switch/", window.location.href);
+      var manifestUrl = new URL("./manifest.json", folderBase).toString();
 
-<script>
-// ── CONFIG ────────────────────────────────────────────
-var SCRIPT_URL    = "https://script.google.com/macros/s/AKfycbyYQJa95ghXgJjLDsRlVCtAMa8vh5dTN_8hD0DgcM7uQsDqTWLfRme53nogvfzd_hZv/exec";
-var DRIVE_API_KEY = "AIzaSyCOJD0ul-OvUCk2L1dUO0c_J4Zl9xEFFDE";
-// ─────────────────────────────────────────────────────
+      var videoItems = [];
+      var activeItem = null;
+      var rafId = null;
+      var frameCount = 0;
+      var lastTimestamp = Date.now();
+      var lastPresentedFrame = 0;
+      var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
 
-var browseScreen = document.getElementById("browseScreen");
-var playerScreen = document.getElementById("playerScreen");
-var testScreen   = document.getElementById("testScreen");
-var fileListEl   = document.getElementById("fileList");
-var cvs          = document.getElementById("cvs");
-var vid          = document.getElementById("vid");
-var statusEl     = document.getElementById("status");
-var infoEl       = document.getElementById("info");
-var testMsg      = document.getElementById("testMsg");
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
 
-var ctx       = cvs.getContext("2d");
-var rafId     = null;
-var playing   = false;
-var frames    = 0;
-var lastT     = 0;
-var fps       = 0;
-var allFiles  = [];
-var curItem   = null;
+      function basename(file) {
+        var lastDot = file.lastIndexOf(".");
+        return lastDot > 0 ? file.slice(0, lastDot) : file;
+      }
 
-// Resize canvas to actual pixel size
-function sizeCanvas() {
-  cvs.width  = window.innerWidth  || 1280;
-  cvs.height = window.innerHeight || 720;
-}
-sizeCanvas();
-if (window.addEventListener) {
-  window.addEventListener("resize", sizeCanvas);
-}
+      function hasVideoExtension(file) {
+        var lower = String(file).toLowerCase();
+        for (var i = 0; i < FILE_EXTENSIONS.length; i += 1) {
+          if (lower.slice(-FILE_EXTENSIONS[i].length) === FILE_EXTENSIONS[i]) {
+            return true;
+          }
+        }
+        return false;
+      }
 
-function show(screen) {
-  browseScreen.style.display = "none";
-  playerScreen.style.display = "none";
-  testScreen.style.display   = "none";
-  screen.style.display       = "block";
-}
+      function getExtension(file) {
+        var extMatch = String(file).match(/\.([a-z0-9]+)$/i);
+        return extMatch ? extMatch[1].toLowerCase() : "";
+      }
 
-function driveUrl(id) {
-  return "https://www.googleapis.com/drive/v3/files/"
-    + id + "?alt=media&key=" + DRIVE_API_KEY;
-}
+      function toLocalUrl(file) {
+        return new URL(file, folderBase).toString();
+      }
 
-function basename(f) {
-  var d = f.lastIndexOf(".");
-  return d > 0 ? f.slice(0, d) : f;
-}
+      function nowMs() {
+        return (window.performance && typeof window.performance.now === "function")
+          ? window.performance.now()
+          : Date.now();
+      }
 
-// ── Frame loop ────────────────────────────────────────
-function drawLoop() {
-  if (!playing) return;
+      function resizeCanvas() {
+        var rect = canvas.getBoundingClientRect();
+        var width = Math.max(1, Math.floor(rect.width));
+        var height = Math.max(1, Math.floor(rect.height));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+      }
 
-  if (vid.readyState >= 2) {
-    sizeCanvas();
-    // This is the line that may fail on Switch — we'll detect it
-    try {
-      ctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
-    } catch(e) {
-      // canvas drawImage(video) is blocked — show fallback
-      stopLoop();
-      showCanvasBlocked();
-      return;
-    }
-    frames++;
-    var now = Date.now();
-    if (now - lastT > 500) {
-      fps   = Math.round(frames / ((now - lastT) / 1000));
-      frames = 0; lastT = now;
-      infoEl.textContent = fps + " fps | " + (vid.currentTime ? vid.currentTime.toFixed(1) + "s" : "");
-    }
-  } else {
-    // Paint black while buffering
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, cvs.width, cvs.height);
-  }
+      function clearDisplay() {
+        resizeCanvas();
+        ctx.fillStyle = "#05060a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
-  rafId = requestAnimationFrame(drawLoop);
-}
+      function stopPlayback() {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        videoEl.pause();
+        overlay.textContent = "Stopped";
+      }
 
-function stopLoop() {
-  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  playing = false;
-  vid.pause();
-}
+      function updateOverlay() {
+        var now = nowMs();
+        var delta = now - lastTimestamp;
+        if (delta > 450) {
+          var fps = frameCount / (delta / 1000);
+          overlay.textContent = "Frames: " + frameCount + " | " + fps.toFixed(1) + " fps";
+          frameCount = 0;
+          lastTimestamp = now;
+        }
+      }
 
-function showCanvasBlocked() {
-  testMsg.textContent =
-    "This browser does not support drawing video to canvas. " +
-    "You can still watch the video in the native player by tapping below.";
-  document.getElementById("btnFallback").onclick = function() {
-    if (curItem) window.location.href = driveUrl(curItem.id);
-  };
-  show(testScreen);
-}
+      function drawVideoFrame() {
+        if (videoEl.readyState >= 2 && !videoEl.paused && !videoEl.ended) {
+          resizeCanvas();
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          frameCount += 1;
+          updateOverlay();
+        }
+      }
 
-// ── Play a file ───────────────────────────────────────
-function playItem(item) {
-  curItem = item;
-  stopLoop();
-  show(playerScreen);
-  statusEl.style.display = "block";
-  statusEl.textContent   = "Loading...";
-  infoEl.textContent     = "";
-  frames = 0; lastT = Date.now();
+      function frameLoop() {
+        drawVideoFrame();
+        if (!videoEl.paused && !videoEl.ended) {
+          rafId = requestAnimationFrame(frameLoop);
+        }
+      }
 
-  // Clear canvas
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, cvs.width, cvs.height);
+      function runFrameByFrameLoop() {
+        if (!usesVfc) {
+          frameLoop();
+          return;
+        }
+        var callback = function (_, metadata) {
+          if (videoEl.paused || videoEl.ended) {
+            return;
+          }
+          if (metadata && metadata.presentedFrames !== lastPresentedFrame) {
+            lastPresentedFrame = metadata.presentedFrames;
+            resizeCanvas();
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            frameCount += 1;
+            updateOverlay();
+          }
+          videoEl.requestVideoFrameCallback(callback);
+        };
+        videoEl.requestVideoFrameCallback(callback);
+      }
 
-  vid.src         = driveUrl(item.id);
-  vid.currentTime = 0;
+      function playVideo(item) {
+        stopPlayback();
+        clearDisplay();
+        overlay.textContent = "Starting...";
+        lastTimestamp = nowMs();
+        frameCount = 0;
+        lastPresentedFrame = 0;
 
-  vid.oncanplay = function() {
-    vid.oncanplay = null;
-    statusEl.style.display = "none";
-    playing = true;
-    vid.play();
-    // Small delay before starting loop so first frame is ready
-    setTimeout(function() { lastT = Date.now(); rafId = requestAnimationFrame(drawLoop); }, 100);
-  };
+        videoEl.src = item.url;
+        videoEl.currentTime = 0;
 
-  vid.onerror = function() {
-    statusEl.textContent = "Error loading video.\nCheck API key & sharing settings.";
-  };
+        var playPromise = videoEl.play();
+        if (playPromise && typeof playPromise.then === "function") {
+          playPromise.then(function () {
+            overlay.textContent = "Playing (frame-by-frame)";
+            runFrameByFrameLoop();
+          }).catch(function () {
+            overlay.textContent = "Press Play to start";
+          });
+        } else {
+          overlay.textContent = "Playing (frame-by-frame)";
+          runFrameByFrameLoop();
+        }
+      }
 
-  vid.load();
-}
+      function renderList(files) {
+        listEl.innerHTML = "";
+        for (var i = 0; i < files.length; i += 1) {
+          var file = files[i];
+          var pill = document.createElement("div");
+          pill.className = "file-pill";
 
-// ── Controls ──────────────────────────────────────────
-document.getElementById("btnPlay").onclick = function() {
-  if (!playing && vid.src) {
-    playing = true;
-    vid.play();
-    statusEl.style.display = "none";
-    lastT = Date.now();
-    rafId = requestAnimationFrame(drawLoop);
-  }
-};
+          var nameSpan = document.createElement("span");
+          nameSpan.textContent = file.label;
+          pill.appendChild(nameSpan);
 
-document.getElementById("btnStop").onclick = function() {
-  stopLoop();
-  statusEl.textContent   = "Stopped";
-  statusEl.style.display = "block";
-};
+          var extSpan = document.createElement("span");
+          extSpan.textContent = (file.ext || "video") + " | " + (file.source || "unknown");
+          pill.appendChild(extSpan);
 
-document.getElementById("btnBack").onclick = function() {
-  stopLoop();
-  vid.src = "";
-  show(browseScreen);
-};
+          listEl.appendChild(pill);
+        }
+      }
 
-document.getElementById("btnBackTest").onclick = function() {
-  show(browseScreen);
-};
+      function buildSelect(files) {
+        selectEl.innerHTML = "";
+        for (var i = 0; i < files.length; i += 1) {
+          var option = document.createElement("option");
+          option.value = String(i);
+          option.textContent = files[i].label;
+          selectEl.appendChild(option);
+        }
+      }
 
-// ── JSONP file list ───────────────────────────────────
-function loadList(url, cb) {
-  var name = "__vc" + (Date.now() % 99999);
-  window[name] = function(data) {
-    window[name] = undefined;
-    try { document.head.removeChild(s); } catch(e) {}
-    cb(data);
-  };
-  var s   = document.createElement("script");
-  var sep = url.indexOf("?") >= 0 ? "&" : "?";
-  s.src   = url + sep + "action=list&callback=" + name;
-  s.onerror = function() {
-    fileListEl.innerHTML = "<p style='color:#f55'>Failed to load list. Check SCRIPT_URL.</p>";
-  };
-  document.head.appendChild(s);
-}
+      function parseManifestData(data) {
+        if (!Array.isArray(data)) {
+          return [];
+        }
+        var files = [];
+        for (var i = 0; i < data.length; i += 1) {
+          if (typeof data[i] === "string" && hasVideoExtension(data[i])) {
+            files.push({
+              source: "local",
+              name: data[i],
+              label: basename(data[i]),
+              ext: getExtension(data[i]),
+              url: toLocalUrl(data[i])
+            });
+          }
+        }
+        return files;
+      }
 
-function buildList(files) {
-  allFiles = [];
-  var supported = {"video/mp4":1,"video/webm":1};
-  for (var i = 0; i < files.length; i++) {
-    var f = files[i];
-    if (!f || f.error || !f.id) continue;
-    if (!supported[f.mimeType]) continue;
-    allFiles.push(f);
-  }
+      function fetchManifest(callback) {
+        if (window.fetch) {
+          fetch(manifestUrl, { cache: "no-store" })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("Manifest not found");
+              }
+              return response.json();
+            })
+            .then(function (data) {
+              callback(parseManifestData(data));
+            })
+            .catch(function () {
+              callback([]);
+            });
+          return;
+        }
 
-  if (!allFiles.length) {
-    fileListEl.innerHTML = "<p style='color:#888'>No MP4/WEBM files found.</p>";
-    return;
-  }
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", manifestUrl, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+          if (xhr.status < 200 || xhr.status >= 300) {
+            callback([]);
+            return;
+          }
+          try {
+            var parsed = JSON.parse(xhr.responseText);
+            callback(parseManifestData(parsed));
+          } catch (e) {
+            callback([]);
+          }
+        };
+        xhr.send();
+      }
 
-  allFiles.sort(function(a,b) { return a.name < b.name ? -1 : 1; });
+      function loadFiles() {
+        setStatus("Loading local video manifest...");
+        fetchManifest(function (localFiles) {
+          var files = localFiles;
+          videoItems = files;
 
-  fileListEl.innerHTML = "";
-  for (var j = 0; j < allFiles.length; j++) {
-    (function(item) {
-      var btn = document.createElement("button");
-      btn.className   = "vbtn";
-      btn.textContent = basename(item.name);
-      btn.onclick     = function() { playItem(item); };
-      fileListEl.appendChild(btn);
-    })(allFiles[j]);
-  }
-}
+          if (!files.length) {
+            setStatus("No MP4/WEBM/MPEG files found.");
+            hintEl.textContent = "Add local files to manifest.json inside videos-for-switch.";
+            clearDisplay();
+            overlay.textContent = "Idle";
+            return;
+          }
 
-// ── Boot ──────────────────────────────────────────────
-if (!SCRIPT_URL || SCRIPT_URL.indexOf("YOUR_") === 0) {
-  fileListEl.innerHTML = "<p style='color:#f55'>Set SCRIPT_URL in the HTML.</p>";
-} else if (!DRIVE_API_KEY || DRIVE_API_KEY.indexOf("YOUR_") === 0) {
-  fileListEl.innerHTML = "<p style='color:#f55'>Set DRIVE_API_KEY in the HTML.</p>";
-} else {
-  loadList(SCRIPT_URL, function(data) {
-    var files = data && data.files ? data.files : (Array.isArray(data) ? data : []);
-    buildList(files);
-  });
-}
-</script>
+          files.sort(function (a, b) {
+            return a.label.localeCompare(b.label);
+          });
+
+          renderList(files);
+          buildSelect(files);
+          activeItem = files[0];
+          selectEl.value = "0";
+          setStatus("Loaded " + files.length + " local file(s).");
+          hintEl.textContent = "Select a video, then press Play.";
+          clearDisplay();
+          overlay.textContent = "Ready";
+        });
+      }
+
+      selectEl.addEventListener("change", function (event) {
+        var index = parseInt(event.target.value, 10);
+        activeItem = videoItems[index] || null;
+        overlay.textContent = "Ready";
+      });
+
+      playBtn.addEventListener("click", function () {
+        if (!activeItem) {
+          overlay.textContent = "No file selected";
+          return;
+        }
+        playVideo(activeItem);
+      });
+
+      stopBtn.addEventListener("click", function () {
+        stopPlayback();
+      });
+
+      window.addEventListener("resize", resizeCanvas);
+      window.addEventListener("orientationchange", resizeCanvas);
+
+      clearDisplay();
+      loadFiles();
+    })();
+  </script>
 </body>
 </html>
