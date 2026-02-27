@@ -151,6 +151,7 @@
     }
 
     select,
+    input,
     button {
       width: 100%;
       padding: 10px 12px;
@@ -172,6 +173,30 @@
     button.secondary {
       background: transparent;
       color: var(--text);
+    }
+
+    .inline-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      align-items: center;
+    }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #0c1018;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      transition: width 120ms ease;
     }
 
     .info {
@@ -234,6 +259,44 @@
             <label for="fileSelect">Choose a file</label>
             <select id="fileSelect"></select>
           </div>
+          <div>
+            <label for="modeSelect">Playback mode</label>
+            <select id="modeSelect">
+              <option value="capture">Option 1: Capture frames (in-memory)</option>
+              <option value="step">Option 2: Frame step mode</option>
+            </select>
+          </div>
+          <div class="inline-row">
+            <div>
+              <label for="fpsInput">Target FPS</label>
+              <select id="fpsInput">
+                <option value="12">12 fps</option>
+                <option value="24" selected>24 fps</option>
+                <option value="30">30 fps</option>
+                <option value="60">60 fps</option>
+              </select>
+            </div>
+            <div>
+              <label for="maxFramesInput">Max frames</label>
+              <select id="maxFramesInput">
+                <option value="all">All frames</option>
+                <option value="120">120</option>
+                <option value="240">240</option>
+                <option value="600" selected>600</option>
+                <option value="1200">1200</option>
+              </select>
+            </div>
+          </div>
+          <div class="inline-row" id="stepControls">
+            <button id="prevFrame" class="secondary">Prev frame</button>
+            <button id="nextFrame" class="secondary">Next frame</button>
+          </div>
+          <div>
+            <label for="captureProgress">Capture progress</label>
+            <div class="progress" id="captureProgress">
+              <span id="captureProgressBar"></span>
+            </div>
+          </div>
           <button id="playButton">Play</button>
           <button id="stopButton" class="secondary">Stop</button>
         </div>
@@ -242,9 +305,23 @@
       <div class="panel">
         <h2 style="margin-top: 0;">Library</h2>
         <p class="info">
-          Files are loaded from <code>/videos-for-switch</code>. Only the name before the extension is shown.
-          Supported: <code>.mp4</code>, <code>.webm</code>, and <code>.mpeg</code>.
+          Videos are loaded from <code>/videos-for-switch</code> and optionally a Google Drive folder.
+          Drive videos are fetched into RAM before playback. Image sequences are loaded from
+          <code>/frames-manifest.json</code> and can point into any folder (including
+          <code>bdns-coredns</code>, <code>CaptiveDNS</code>, <code>dns-landing</code>, and
+          <code>LaneChange</code>).
         </p>
+        <div class="controls">
+          <div>
+            <label for="driveFolderInput">Google Drive Folder ID</label>
+            <input id="driveFolderInput" type="text" placeholder="e.g. 1AbCdEf..." />
+          </div>
+          <div>
+            <label for="driveApiKeyInput">Google API Key</label>
+            <input id="driveApiKeyInput" type="text" placeholder="AIza..." />
+          </div>
+          <button id="refreshDriveButton" class="secondary">Reload Local + Drive</button>
+        </div>
         <div class="file-list" id="fileList"></div>
         <p class="info" id="hint"></p>
       </div>
@@ -265,16 +342,42 @@
       var hintEl = document.getElementById("hint");
       var playBtn = document.getElementById("playButton");
       var stopBtn = document.getElementById("stopButton");
+      var modeSelect = document.getElementById("modeSelect");
+      var fpsInput = document.getElementById("fpsInput");
+      var maxFramesInput = document.getElementById("maxFramesInput");
+      var prevFrameBtn = document.getElementById("prevFrame");
+      var nextFrameBtn = document.getElementById("nextFrame");
+      var stepControls = document.getElementById("stepControls");
+      var captureProgressBar = document.getElementById("captureProgressBar");
+      var driveFolderInput = document.getElementById("driveFolderInput");
+      var driveApiKeyInput = document.getElementById("driveApiKeyInput");
+      var refreshDriveBtn = document.getElementById("refreshDriveButton");
       var folderBase = new URL("./videos-for-switch/", window.location.href);
       var manifestUrl = new URL("./manifest.json", folderBase).toString();
+      var framesManifestUrl = new URL("./frames-manifest.json", window.location.href).toString();
+      var driveStoreKey = "videos_google_drive_config";
+      var DRIVE_API_BASE = "https://www.googleapis.com/drive/v3/files";
+      var DRIVE_VIDEO_MIME_PREFIX = "video/";
 
       var videoItems = [];
+      var frameItems = [];
+      var driveItems = [];
+      var mediaItems = [];
       var activeItem = null;
       var rafId = null;
+      var frameTimer = null;
       var frameCount = 0;
       var lastTimestamp = Date.now();
       var lastPresentedFrame = 0;
       var usesVfc = typeof videoEl.requestVideoFrameCallback === "function";
+      var frameIndex = 0;
+      var frameSequence = [];
+      var frameFps = 24;
+      var frameLoop = true;
+      var stepModeActive = false;
+      var captureCanvas = document.createElement("canvas");
+      var captureCtx = captureCanvas.getContext("2d");
+      var captureInProgress = false;
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -304,6 +407,37 @@
         return new URL(file, folderBase).toString();
       }
 
+      function readDriveConfig() {
+        var folder = "1e_0qjl4BPUWgqN5ZzWD-R0VjhoQQf0xu";
+        var key = "AIzaSyD1J0gFPRabceVQW6CIu8uF71hnKtUHPuw";
+        try {
+          var raw = window.localStorage.getItem(driveStoreKey);
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") {
+              folder = typeof parsed.folderId === "string" ? parsed.folderId : "";
+              key = typeof parsed.apiKey === "string" ? parsed.apiKey : "";
+            }
+          }
+        } catch (e) {}
+        return { folderId: folder.trim(), apiKey: key.trim() };
+      }
+
+      function saveDriveConfig(folderId, apiKey) {
+        try {
+          window.localStorage.setItem(driveStoreKey, JSON.stringify({
+            folderId: String(folderId || "").trim(),
+            apiKey: String(apiKey || "").trim()
+          }));
+        } catch (e) {}
+      }
+
+      function applyDriveConfigToInputs() {
+        var cfg = readDriveConfig();
+        driveFolderInput.value = cfg.folderId;
+        driveApiKeyInput.value = cfg.apiKey;
+      }
+
       function nowMs() {
         return (window.performance && typeof window.performance.now === "function")
           ? window.performance.now()
@@ -331,7 +465,13 @@
           cancelAnimationFrame(rafId);
           rafId = null;
         }
+        if (frameTimer) {
+          clearTimeout(frameTimer);
+          frameTimer = null;
+        }
         videoEl.pause();
+        captureInProgress = false;
+        captureProgressBar.style.width = "0%";
         overlay.textContent = "Stopped";
       }
 
@@ -391,7 +531,7 @@
         frameCount = 0;
         lastPresentedFrame = 0;
 
-        videoEl.src = item.url;
+        videoEl.src = resolveVideoSrc(item);
         videoEl.currentTime = 0;
 
         var playPromise = videoEl.play();
@@ -408,6 +548,299 @@
         }
       }
 
+      function ensureVideoInRam(item, callback, onError) {
+        if (!item || item.type === "frames") {
+          callback(item);
+          return;
+        }
+        if (item.source !== "drive") {
+          callback(item);
+          return;
+        }
+        if (item.ramUrl) {
+          callback(item);
+          return;
+        }
+        if (item.ramPending) {
+          item.ramQueue.push({ callback: callback, onError: onError });
+          return;
+        }
+        item.ramPending = true;
+        item.ramQueue = [{ callback: callback, onError: onError }];
+        overlay.textContent = "Loading drive video into RAM...";
+        fetch(item.downloadUrl, { cache: "no-store" })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("Unable to fetch drive file");
+            }
+            return response.blob();
+          })
+          .then(function (blob) {
+            item.ramUrl = URL.createObjectURL(blob);
+            item.ramPending = false;
+            var queue = item.ramQueue.slice();
+            item.ramQueue.length = 0;
+            for (var i = 0; i < queue.length; i += 1) {
+              queue[i].callback(item);
+            }
+          })
+          .catch(function () {
+            item.ramPending = false;
+            var queue = item.ramQueue.slice();
+            item.ramQueue.length = 0;
+            for (var i = 0; i < queue.length; i += 1) {
+              if (typeof queue[i].onError === "function") {
+                queue[i].onError();
+              }
+            }
+          });
+      }
+
+      function getSelectedFps() {
+        var value = parseInt(fpsInput.value, 10);
+        return Number.isFinite(value) && value > 0 ? value : 24;
+      }
+
+      function resolveVideoSrc(item) {
+        if (!item) {
+          return "";
+        }
+        return item.ramUrl || item.url || item.downloadUrl || "";
+      }
+
+      function getMaxFrames() {
+        if (String(maxFramesInput.value) === "all") {
+          return Infinity;
+        }
+        var value = parseInt(maxFramesInput.value, 10);
+        return Number.isFinite(value) && value > 0 ? value : 600;
+      }
+
+      function setStepControlsVisibility() {
+        stepModeActive = modeSelect.value === "step";
+        stepControls.classList.toggle("hidden", !stepModeActive);
+      }
+
+      function captureVideoToFrames(item) {
+        stopPlayback();
+        clearDisplay();
+        overlay.textContent = "Preparing capture...";
+        captureInProgress = true;
+        captureProgressBar.style.width = "0%";
+
+        var targetFps = getSelectedFps();
+        var maxFrames = getMaxFrames();
+
+        videoEl.src = resolveVideoSrc(item);
+        videoEl.currentTime = 0;
+        videoEl.pause();
+
+        var onMeta = function () {
+          var duration = isFinite(videoEl.duration) ? videoEl.duration : 0;
+          var totalFrames = Math.max(1, Math.floor(duration * targetFps));
+          if (totalFrames > maxFrames) {
+            totalFrames = maxFrames;
+          }
+
+          captureCanvas.width = videoEl.videoWidth || 1280;
+          captureCanvas.height = videoEl.videoHeight || 720;
+
+          var frames = [];
+          var index = 0;
+
+          var captureNext = function () {
+            if (!captureInProgress) {
+              overlay.textContent = "Capture stopped";
+              return;
+            }
+            if (index >= totalFrames) {
+              captureProgressBar.style.width = "100%";
+              overlay.textContent = "Captured " + frames.length + " frames";
+              playFrameSequence({
+                type: "frames",
+                label: item.label + " (captured)",
+                fps: targetFps,
+                loop: true,
+                frames: frames
+              });
+              return;
+            }
+
+            overlay.textContent = "Capturing " + (index + 1) + " / " + totalFrames;
+            captureProgressBar.style.width = Math.round((index / totalFrames) * 100) + "%";
+            var time = index / targetFps;
+            var onSeeked = function () {
+              videoEl.removeEventListener("seeked", onSeeked);
+              captureCtx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
+              try {
+                frames.push(captureCanvas.toDataURL("image/png"));
+              } catch (e) {
+                overlay.textContent = "Capture failed (tainted canvas)";
+                captureInProgress = false;
+                captureProgressBar.style.width = "0%";
+                return;
+              }
+              index += 1;
+              setTimeout(captureNext, 0);
+            };
+            videoEl.addEventListener("seeked", onSeeked);
+            videoEl.currentTime = time;
+          };
+
+          captureNext();
+        };
+
+        if (videoEl.readyState >= 1) {
+          onMeta();
+        } else {
+          videoEl.onloadedmetadata = function () {
+            videoEl.onloadedmetadata = null;
+            onMeta();
+          };
+        }
+      }
+
+      function preloadFrame(index) {
+        var entry = frameSequence[index];
+        if (!entry || entry.img) {
+          return;
+        }
+        var img = new Image();
+        entry.img = img;
+        img.onload = function () {
+          entry.loaded = true;
+        };
+        img.onerror = function () {
+          entry.error = true;
+        };
+        img.src = entry.url;
+      }
+
+      function drawFrame(index) {
+        var entry = frameSequence[index];
+        if (!entry) {
+          return "missing";
+        }
+        if (entry.error) {
+          return "error";
+        }
+        if (!entry.loaded) {
+          preloadFrame(index);
+          return "pending";
+        }
+        resizeCanvas();
+        ctx.drawImage(entry.img, 0, 0, canvas.width, canvas.height);
+        return "drawn";
+      }
+
+      function advanceFrame() {
+        var result = drawFrame(frameIndex);
+        if (result === "drawn") {
+          frameCount += 1;
+          updateOverlay();
+          frameIndex += 1;
+          if (frameIndex >= frameSequence.length) {
+            if (frameLoop) {
+              frameIndex = 0;
+            } else {
+              overlay.textContent = "Finished";
+              return;
+            }
+          }
+        } else if (result === "error") {
+          frameIndex += 1;
+          if (frameIndex >= frameSequence.length) {
+            frameIndex = frameLoop ? 0 : frameSequence.length - 1;
+          }
+        }
+        preloadFrame(frameIndex + 1);
+        frameTimer = setTimeout(advanceFrame, Math.max(12, 1000 / frameFps));
+      }
+
+      function playFrameSequence(item) {
+        stopPlayback();
+        clearDisplay();
+        overlay.textContent = "Starting...";
+        lastTimestamp = nowMs();
+        frameCount = 0;
+        frameIndex = 0;
+        frameFps = typeof item.fps === "number" && item.fps > 0 ? item.fps : 24;
+        frameLoop = item.loop !== false;
+        frameSequence = (item.frames || []).map(function (url) {
+          return { url: url, img: null, loaded: false, error: false };
+        });
+
+        if (!frameSequence.length) {
+          overlay.textContent = "No frames";
+          return;
+        }
+
+        overlay.textContent = "Playing (image frames)";
+        preloadFrame(0);
+        preloadFrame(1);
+        advanceFrame();
+      }
+
+      function showFirstFrameForStepMode(item) {
+        stopPlayback();
+        clearDisplay();
+        overlay.textContent = "Step mode ready";
+        lastTimestamp = nowMs();
+        frameCount = 0;
+        frameIndex = 0;
+        frameFps = getSelectedFps();
+        frameLoop = true;
+
+        if (item.type === "frames") {
+          frameSequence = (item.frames || []).map(function (url) {
+            return { url: url, img: null, loaded: false, error: false };
+          });
+          preloadFrame(0);
+          var wait = setInterval(function () {
+            var result = drawFrame(0);
+            if (result === "drawn") {
+              clearInterval(wait);
+            }
+          }, 30);
+          return;
+        }
+
+        videoEl.src = resolveVideoSrc(item);
+        videoEl.pause();
+        videoEl.currentTime = 0;
+        var onSeeked = function () {
+          videoEl.removeEventListener("seeked", onSeeked);
+          resizeCanvas();
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        };
+        videoEl.addEventListener("seeked", onSeeked);
+      }
+
+      function stepFrame(delta) {
+        if (!activeItem) {
+          return;
+        }
+        if (activeItem.type === "frames") {
+          frameIndex += delta;
+          if (frameIndex < 0) {
+            frameIndex = frameSequence.length - 1;
+          } else if (frameIndex >= frameSequence.length) {
+            frameIndex = 0;
+          }
+          drawFrame(frameIndex);
+          return;
+        }
+        var step = 1 / Math.max(1, getSelectedFps());
+        var nextTime = Math.max(0, (videoEl.currentTime || 0) + delta * step);
+        var onSeeked = function () {
+          videoEl.removeEventListener("seeked", onSeeked);
+          resizeCanvas();
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        };
+        videoEl.addEventListener("seeked", onSeeked);
+        videoEl.currentTime = nextTime;
+      }
+
       function renderList(files) {
         listEl.innerHTML = "";
         for (var i = 0; i < files.length; i += 1) {
@@ -420,7 +853,11 @@
           pill.appendChild(nameSpan);
 
           var extSpan = document.createElement("span");
-          extSpan.textContent = (file.ext || "video") + " | " + (file.source || "unknown");
+          if (file.type === "frames") {
+            extSpan.textContent = "frames | " + (file.fps || 24) + " fps";
+          } else {
+            extSpan.textContent = (file.ext || "video") + " | " + (file.source || "unknown");
+          }
           pill.appendChild(extSpan);
 
           listEl.appendChild(pill);
@@ -454,6 +891,109 @@
           }
         }
         return files;
+      }
+
+      function parseDriveManifestData(data, apiKey) {
+        if (!data || !Array.isArray(data.files)) {
+          return [];
+        }
+        var files = [];
+        for (var i = 0; i < data.files.length; i += 1) {
+          var file = data.files[i] || {};
+          var name = typeof file.name === "string" ? file.name : "";
+          var mimeType = typeof file.mimeType === "string" ? file.mimeType : "";
+          var isVideo = mimeType.indexOf(DRIVE_VIDEO_MIME_PREFIX) === 0 || hasVideoExtension(name);
+          if (!isVideo || !name || !file.id) {
+            continue;
+          }
+          files.push({
+            source: "drive",
+            id: file.id,
+            name: name,
+            label: basename(name),
+            ext: getExtension(name) || "video",
+            mimeType: mimeType,
+            url: DRIVE_API_BASE + "/" + encodeURIComponent(file.id) + "?alt=media&key=" + encodeURIComponent(apiKey),
+            downloadUrl: DRIVE_API_BASE + "/" + encodeURIComponent(file.id) + "?alt=media&key=" + encodeURIComponent(apiKey),
+            ramUrl: null,
+            ramPending: false,
+            ramQueue: []
+          });
+        }
+        return files;
+      }
+
+      function toAbsoluteUrl(path, base) {
+        try {
+          return new URL(path, base || window.location.href).toString();
+        } catch (e) {
+          return path;
+        }
+      }
+
+      function padNumber(value, size) {
+        var str = String(value);
+        while (str.length < size) {
+          str = "0" + str;
+        }
+        return str;
+      }
+
+      function expandPatternFrames(entry) {
+        var pattern = entry.pattern;
+        var start = typeof entry.start === "number" ? entry.start : 0;
+        var end = typeof entry.end === "number" ? entry.end : -1;
+        var count = typeof entry.count === "number" ? entry.count : null;
+        var pad = typeof entry.pad === "number" ? entry.pad : 4;
+        var frames = [];
+        if (count !== null && count > 0) {
+          end = start + count - 1;
+        }
+        if (end < start) {
+          return frames;
+        }
+        for (var i = start; i <= end; i += 1) {
+          var token = pad ? padNumber(i, pad) : String(i);
+          frames.push(pattern.replace("{i}", token));
+        }
+        return frames;
+      }
+
+      function parseFrameManifest(data) {
+        if (!Array.isArray(data)) {
+          return [];
+        }
+        var items = [];
+        for (var i = 0; i < data.length; i += 1) {
+          var entry = data[i];
+          if (!entry || typeof entry !== "object") {
+            continue;
+          }
+          var name = typeof entry.name === "string" ? entry.name : "Image Sequence " + (i + 1);
+          var base = entry.base || window.location.href;
+          var frames = [];
+          if (Array.isArray(entry.frames)) {
+            for (var j = 0; j < entry.frames.length; j += 1) {
+              frames.push(toAbsoluteUrl(entry.frames[j], base));
+            }
+          } else if (typeof entry.pattern === "string") {
+            var expanded = expandPatternFrames(entry);
+            for (var k = 0; k < expanded.length; k += 1) {
+              frames.push(toAbsoluteUrl(expanded[k], base));
+            }
+          }
+          if (!frames.length) {
+            continue;
+          }
+          items.push({
+            type: "frames",
+            label: name,
+            fps: typeof entry.fps === "number" ? entry.fps : 24,
+            loop: entry.loop !== false,
+            frames: frames
+          });
+        }
+        return items;
       }
 
       function fetchManifest(callback) {
@@ -494,39 +1034,129 @@
         xhr.send();
       }
 
-      function loadFiles() {
-        setStatus("Loading local video manifest...");
-        fetchManifest(function (localFiles) {
-          var files = localFiles;
-          videoItems = files;
+      function fetchFrameManifest(callback) {
+        if (window.fetch) {
+          fetch(framesManifestUrl, { cache: "no-store" })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("Frames manifest not found");
+              }
+              return response.json();
+            })
+            .then(function (data) {
+              callback(parseFrameManifest(data));
+            })
+            .catch(function () {
+              callback([]);
+            });
+          return;
+        }
 
-          if (!files.length) {
-            setStatus("No MP4/WEBM/MPEG files found.");
-            hintEl.textContent = "Add local files to manifest.json inside videos-for-switch.";
-            clearDisplay();
-            overlay.textContent = "Idle";
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", framesManifestUrl, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
             return;
           }
+          if (xhr.status < 200 || xhr.status >= 300) {
+            callback([]);
+            return;
+          }
+          try {
+            var parsed = JSON.parse(xhr.responseText);
+            callback(parseFrameManifest(parsed));
+          } catch (e) {
+            callback([]);
+          }
+        };
+        xhr.send();
+      }
 
-          files.sort(function (a, b) {
-            return a.label.localeCompare(b.label);
+      function fetchDriveVideos(callback) {
+        var folderId = String(driveFolderInput.value || "").trim();
+        var apiKey = String(driveApiKeyInput.value || "").trim();
+
+        saveDriveConfig(folderId, apiKey);
+
+        if (!folderId || !apiKey) {
+          callback([]);
+          return;
+        }
+
+        var query = "'" + folderId + "' in parents and trashed = false";
+        var params = [
+          "q=" + encodeURIComponent(query),
+          "fields=" + encodeURIComponent("files(id,name,mimeType,size),nextPageToken"),
+          "pageSize=1000",
+          "supportsAllDrives=true",
+          "includeItemsFromAllDrives=true",
+          "key=" + encodeURIComponent(apiKey)
+        ].join("&");
+        var url = DRIVE_API_BASE + "?" + params;
+
+        fetch(url, { cache: "no-store" })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("Drive list request failed");
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            callback(parseDriveManifestData(data, apiKey));
+          })
+          .catch(function () {
+            callback([]);
           });
+      }
 
-          renderList(files);
-          buildSelect(files);
-          activeItem = files[0];
-          selectEl.value = "0";
-          setStatus("Loaded " + files.length + " local file(s).");
-          hintEl.textContent = "Select a video, then press Play.";
-          clearDisplay();
-          overlay.textContent = "Ready";
+      function loadFiles() {
+        setStatus("Loading local and Drive sources...");
+        fetchManifest(function (localFiles) {
+          videoItems = localFiles;
+          fetchFrameManifest(function (localFrames) {
+            frameItems = localFrames;
+            fetchDriveVideos(function (remoteVideos) {
+              driveItems = remoteVideos;
+              mediaItems = videoItems.concat(driveItems).concat(frameItems);
+
+              if (!mediaItems.length) {
+                setStatus("No videos or image sequences found.");
+                hintEl.textContent = "Add local files to videos-for-switch/manifest.json, or enter Drive folder/API key, or add image sequences to frames-manifest.json.";
+                clearDisplay();
+                overlay.textContent = "Idle";
+                return;
+              }
+
+              mediaItems.sort(function (a, b) {
+                return a.label.localeCompare(b.label);
+              });
+
+              renderList(mediaItems);
+              buildSelect(mediaItems);
+              activeItem = mediaItems[0];
+              selectEl.value = "0";
+              setStatus(
+                "Loaded " + mediaItems.length + " item(s): " +
+                videoItems.length + " local video, " +
+                driveItems.length + " Drive video, " +
+                frameItems.length + " image sequence."
+              );
+              hintEl.textContent = "Select an item, then press Play. Drive files load into RAM on first play.";
+              clearDisplay();
+              overlay.textContent = "Ready";
+            });
+          });
         });
       }
 
       selectEl.addEventListener("change", function (event) {
         var index = parseInt(event.target.value, 10);
-        activeItem = videoItems[index] || null;
+        activeItem = mediaItems[index] || null;
         overlay.textContent = "Ready";
+      });
+
+      modeSelect.addEventListener("change", function () {
+        setStepControlsVisibility();
       });
 
       playBtn.addEventListener("click", function () {
@@ -534,17 +1164,54 @@
           overlay.textContent = "No file selected";
           return;
         }
-        playVideo(activeItem);
+        ensureVideoInRam(activeItem, function (item) {
+          var mode = modeSelect.value;
+          if (mode === "step") {
+            showFirstFrameForStepMode(item);
+            return;
+          }
+          if (mode === "capture" && item.type !== "frames") {
+            captureVideoToFrames(item);
+            return;
+          }
+          if (item.type === "frames") {
+            playFrameSequence(item);
+            return;
+          }
+          playVideo(item);
+        }, function () {
+          overlay.textContent = "Failed to load Drive video into RAM";
+        });
       });
 
       stopBtn.addEventListener("click", function () {
         stopPlayback();
       });
 
+      prevFrameBtn.addEventListener("click", function () {
+        if (!stepModeActive) {
+          return;
+        }
+        stepFrame(-1);
+      });
+
+      nextFrameBtn.addEventListener("click", function () {
+        if (!stepModeActive) {
+          return;
+        }
+        stepFrame(1);
+      });
+
+      refreshDriveBtn.addEventListener("click", function () {
+        loadFiles();
+      });
+
       window.addEventListener("resize", resizeCanvas);
       window.addEventListener("orientationchange", resizeCanvas);
 
       clearDisplay();
+      applyDriveConfigToInputs();
+      setStepControlsVisibility();
       loadFiles();
     })();
   </script>
