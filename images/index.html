@@ -25,9 +25,19 @@
 
         .image-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 20px;
             padding: 20px;
+        }
+        @media (max-width: 900px) {
+            .image-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 600px) {
+            .image-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .image-card {
@@ -71,20 +81,20 @@
         <h1>Image Gallery</h1>
         <div class="image-grid">
             <div class="image-card">
-                <img src="assets/picture.webp" alt="WebP Image">
+                <img src="../assets/picture.webp" alt="WebP Image">
                 <div class="image-info">Format: WebP</div>
             </div>
             <div class="image-card">
-                <img src="../Screenshot 2026-02-11 4.13.13 PM.png" alt="PNG Image">
+                <img src="../kts.jpg" alt="PNG Image">
                 <div class="image-info">Format: PNG</div>
             </div>
             <div class="image-card">
-                <img src="sample.png" alt="JPG Image">
-                <div class="image-info">Format: JPG</div>
+                <img src="../Screenshot%202026-02-11%204.13.13%20PM.png" alt="PNG Screenshot">
+                <div class="image-info">Format: PNG</div>
             </div>
             <div class="image-card">
-                <img src="sample.jpeg" alt="JPEG Image">
-                <div class="image-info">Format: JPEG</div>
+                <img src="" alt="ICO Icon">
+                <div class="image-info">Format: ICO</div>
             </div>
         </div>
     </div>
