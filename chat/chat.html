@@ -201,12 +201,6 @@
       color: var(--muted);
     }
 
-    .typing {
-      min-height: 18px;
-      color: var(--pink);
-      font-size: 12px;
-    }
-
     .hidden { display: none; }
 
     @media (max-width: 720px) {
@@ -234,12 +228,11 @@
           <div class="small" id="userInfo"></div>
         </div>
         <div class="small">
+          <button id="notificationsBtn" type="button">Enable Notifications</button>
           <button id="refreshBtn" type="button">Refresh</button>
           <button id="logoutBtn" type="button" style="margin-left:8px;background:linear-gradient(135deg,#ff4fa3,#8b5cff);color:#0b0f1a;">Log Out</button>
         </div>
       </div>
-
-      <div class="typing" id="typingIndicator"></div>
 
       <button id="loadMoreBtn" type="button">Load 100 more</button>
 
@@ -272,8 +265,6 @@
       getDatabase,
       ref as dbRef,
       push,
-      query,
-      orderByChild,
       onValue,
       off
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
@@ -293,8 +284,6 @@
     const db = getDatabase(app);
 
     const MESSAGES_PATH = "messages";
-    const TYPING_PATH = "typing";
-
     const loginCard = document.getElementById("loginCard");
     const chatCard = document.getElementById("chatCard");
     const loginForm = document.getElementById("loginForm");
@@ -308,13 +297,19 @@
     const refreshBtn = document.getElementById("refreshBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const loadMoreBtn = document.getElementById("loadMoreBtn");
-    const typingIndicator = document.getElementById("typingIndicator");
+    const notificationsBtn = document.getElementById("notificationsBtn");
 
     let currentUser = null;
     let realtimeUnsub = null;
-    let typingUnsub = null;
-    let lastTypingSent = 0;
     const renderedIds = new Set();
+    let baseTitle = "Neon Tide Chat";
+    const NOTIFY_PREF_KEY = "neon_tide_chat_notifications_enabled";
+    let notificationsEnabled = localStorage.getItem(NOTIFY_PREF_KEY) === "true";
+    let unreadCount = 0;
+    let hasInitializedUnread = false;
+    let lastSeenMeta = null;
+    let lastProcessedMeta = null;
+    let lastEntries = [];
 
     const COLOR_CODES = {
       "0": "#000000",
@@ -396,13 +391,80 @@
       return renderWithColors(raw || "");
     }
 
+    function updateTitle() {
+      document.title = unreadCount > 0 ? `(${unreadCount}) ${baseTitle}` : baseTitle;
+    }
+
+    function setUnreadCount(value) {
+      unreadCount = Math.max(0, Number(value) || 0);
+      updateTitle();
+    }
+
+    function getMessageMeta(doc) {
+      const createdAt = typeof doc.createdAt === "number"
+        ? doc.createdAt
+        : (typeof doc.timestamp === "number" ? doc.timestamp : 0);
+      const id = doc.id ? String(doc.id) : "";
+      return { createdAt, id };
+    }
+
+    function isAfterMeta(a, b) {
+      if (!b) return true;
+      if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt;
+      return a.id > b.id;
+    }
+
+    function isOwnMessage(doc) {
+      if (!currentUser) return false;
+      return doc.userId && doc.userId === currentUser.uid;
+    }
+
+    function isAtBottom() {
+      const threshold = 16;
+      return messagesEl.scrollTop + messagesEl.clientHeight >= messagesEl.scrollHeight - threshold;
+    }
+
+    function updateNotificationsButton() {
+      if (!("Notification" in window)) {
+        notificationsBtn.textContent = "Notifications Unsupported";
+        notificationsBtn.disabled = true;
+        return;
+      }
+      if (Notification.permission !== "granted") {
+        notificationsEnabled = false;
+        localStorage.setItem(NOTIFY_PREF_KEY, "false");
+      }
+      notificationsBtn.textContent = notificationsEnabled ? "Disable Notifications" : "Enable Notifications";
+      notificationsBtn.disabled = false;
+    }
+
+    async function enableNotifications() {
+      if (!("Notification" in window)) return;
+      let permission = Notification.permission;
+      if (permission === "default") {
+        permission = await Notification.requestPermission();
+      }
+      if (permission === "granted") {
+        notificationsEnabled = true;
+        localStorage.setItem(NOTIFY_PREF_KEY, "true");
+      } else {
+        notificationsEnabled = false;
+        localStorage.setItem(NOTIFY_PREF_KEY, "false");
+      }
+      updateNotificationsButton();
+    }
+
     function showLogin() {
       loginCard.classList.remove("hidden");
       chatCard.classList.add("hidden");
       if (realtimeUnsub) realtimeUnsub();
-      if (typingUnsub) typingUnsub();
       realtimeUnsub = null;
-      typingUnsub = null;
+      loadMoreBtn.classList.add("hidden");
+      hasInitializedUnread = false;
+      lastSeenMeta = null;
+      lastProcessedMeta = null;
+      lastEntries = [];
+      setUnreadCount(0);
     }
 
     function showChat() {
@@ -435,6 +497,19 @@
       currentUser = null;
       showLogin();
     });
+
+    notificationsBtn.addEventListener("click", async () => {
+      if (!("Notification" in window)) return;
+      if (notificationsEnabled) {
+        notificationsEnabled = false;
+        localStorage.setItem(NOTIFY_PREF_KEY, "false");
+        updateNotificationsButton();
+        return;
+      }
+      await enableNotifications();
+    });
+
+    updateNotificationsButton();
 
     refreshBtn.addEventListener("click", () => subscribeRealtime());
     loadMoreBtn.addEventListener("click", () => {});
@@ -502,12 +577,54 @@
             if (at !== bt) return at - bt;
             return String(a.id).localeCompare(String(b.id));
           });
+        lastEntries = entries;
 
         for (const doc of entries) {
           renderMessage(doc, false);
         }
 
         messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        const latestMeta = entries.length ? getMessageMeta(entries[entries.length - 1]) : null;
+        if (!hasInitializedUnread) {
+          lastSeenMeta = latestMeta;
+          lastProcessedMeta = latestMeta;
+          hasInitializedUnread = true;
+          setUnreadCount(0);
+          return;
+        }
+
+        const newEntries = lastProcessedMeta
+          ? entries.filter((doc) => isAfterMeta(getMessageMeta(doc), lastProcessedMeta))
+          : entries;
+
+        for (const doc of newEntries) {
+          if (isOwnMessage(doc)) continue;
+          if (!notificationsEnabled) continue;
+          if (!("Notification" in window)) continue;
+          if (Notification.permission !== "granted") continue;
+          if (!document.hidden) continue;
+          const title = `From: ${doc.username || doc.userEmail || doc.userId || "Unknown"}`;
+          const body = String(doc.text || "");
+          try {
+            new Notification(title, { body, tag: doc.id || String(doc.createdAt || "") });
+          } catch {}
+        }
+
+        if (latestMeta) {
+          lastProcessedMeta = latestMeta;
+        }
+
+        if (document.hidden) {
+          const unread = entries.filter((doc) => {
+            if (isOwnMessage(doc)) return false;
+            return !lastSeenMeta || isAfterMeta(getMessageMeta(doc), lastSeenMeta);
+          }).length;
+          setUnreadCount(unread);
+        } else if (latestMeta) {
+          lastSeenMeta = latestMeta;
+          setUnreadCount(0);
+        }
       };
       const errCb = (err) => {
         resetMessages();
@@ -520,44 +637,23 @@
       realtimeUnsub = () => off(q, "value", cb);
     }
 
-    function subscribeTyping() {
-      if (typingUnsub) typingUnsub();
-      const q = query(
-        dbRef(db, TYPING_PATH),
-        orderByChild("ts"),
-        limitToLast(1)
-      );
-      const cb = (snap) => {
-        const data = snap.val();
-        if (!data) return;
-        if (data.userId === currentUser?.uid) return;
-        const ts = typeof data.ts === "number" ? data.ts : 0;
-        const ageMs = Date.now() - ts;
-        if (ageMs > 2500) return;
-        typingIndicator.textContent = `${data.username || "Someone"} is typing...`;
-        clearTimeout(typingIndicator._t);
-        typingIndicator._t = setTimeout(() => {
-          typingIndicator.textContent = "";
-        }, 1500);
-      };
-      onChildAdded(q, cb);
-      typingUnsub = () => off(q, "child_added", cb);
-    }
+    messagesEl.addEventListener("scroll", () => {
+      if (!hasInitializedUnread) return;
+      if (document.hidden) return;
+      if (!isAtBottom()) return;
+      if (lastProcessedMeta) {
+        lastSeenMeta = lastProcessedMeta;
+        setUnreadCount(0);
+      }
+    });
 
-    function sendTypingSignal() {
-      const now = Date.now();
-      if (now - lastTypingSent < 900) return;
-      lastTypingSent = now;
-      push(dbRef(db, TYPING_PATH), {
-        userId: currentUser?.uid || "",
-        username: currentUser?.displayName || currentUser?.email || "User",
-        ts: Date.now()
-      }).catch(() => {});
-    }
-
-    messageInput.addEventListener("input", () => {
-      if (!currentUser) return;
-      sendTypingSignal();
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      if (!hasInitializedUnread) return;
+      if (lastProcessedMeta) {
+        lastSeenMeta = lastProcessedMeta;
+        setUnreadCount(0);
+      }
     });
 
     messageInput.addEventListener("keydown", (e) => {
@@ -604,7 +700,6 @@
       currentUser = user;
       showChat();
       subscribeRealtime();
-      subscribeTyping();
     });
   </script>
 </body>
