@@ -395,8 +395,8 @@
           <button id="refreshBtn" type="button">Refresh</button>
           <button id="logoutBtn" type="button" style="margin-left:8px;background:linear-gradient(135deg,#ff4fa3,#8b5cff);color:#0b0f1a;">Log Out</button>
           <!-- ADDED: Call buttons -->
-          <button id="startVideoCallBtn" type="button" style="margin-left:8px;background:linear-gradient(135deg,#2ee6d6,#8b5cff);">Video Call</button>
-          <button id="startAudioCallBtn" type="button" style="margin-left:8px;background:linear-gradient(135deg,#2ee6d6,#ff4fa3);">Audio Call</button>
+          <button id="startVideoCallBtn" type="button" disabled style="margin-left:8px;background:linear-gradient(135deg,#2ee6d6,#8b5cff);">Video Call</button>
+          <button id="startAudioCallBtn" type="button" disabled style="margin-left:8px;background:linear-gradient(135deg,#2ee6d6,#ff4fa3);">Audio Call</button>
         </div>
       </div>
 
@@ -680,9 +680,36 @@
       userInfo.textContent = `Logged in as ${currentUser?.displayName || currentUser?.email || "User"}`;
       loadMoreBtn.classList.add("hidden");
       // ADDED: start presence
-      initPresence();
-    }
+      function initPresence() {
+        if (!currentUser) return;
 
+        // Disable call buttons until we know who else is here
+        startVideoCallBtn.disabled = true;
+        startAudioCallBtn.disabled = true;
+        const userPresenceRef = dbRef(db, `${PRESENCE_PATH}/${currentUser.uid}`);
+        const presenceData = {online: true, email: currentUser.email || "", lastSeen: Date.now()};
+
+        // Listen to presence of ALL users, and filter out current user
+        const presenceRef = dbRef(db, PRESENCE_PATH);
+        onValue(presenceRef, (snap) => {
+          const data = snap.val() || {};
+          const otherUsers = Object.entries(data).filter(([uid]) => uid !== currentUser.uid);
+        
+        if (otherUsers.length > 0) {
+          const [uid, info] = otherUsers[0];
+          otherUser = { uid, email: info.email, online: info.online };
+
+          // Enable call buttons
+          startVideoCallBtn.disabled = false;
+          startAudioCallBtn.disabled = false;
+        } else {
+          otherUser = null;
+          startVideoCallBtn.disabled = true;
+          startAudioCallBtn.disabled=true;
+        }
+        });
+      }
+    }
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = loginEmail.value.trim();
